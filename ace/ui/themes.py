@@ -8,13 +8,13 @@ THEME_STYLES = {
     "warning": "yellow",
     "error": "bold red",
     "success": "green",
-    "ai": "bold purple",
+    "ai": "bold orange3",
     "git.add": "green",
     "git.delete": "red",
     "git.modify": "yellow",
     "command": "bold white on blue",
     "path": "underline cyan",
-    "panel.border": "purple",
+    "panel.border": "orange3",
 }
 
 def get_rich_theme() -> Theme:

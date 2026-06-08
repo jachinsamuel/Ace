@@ -58,7 +58,7 @@ def show_plan(commands: List[str], explanations: List[str]) -> None:
     content.append("Proposed Plan:\n", style="bold white")
     
     for i, (cmd, exp) in enumerate(zip(commands, explanations), 1):
-        content.append(f"\n {i}. ", style="bold purple")
+        content.append(f"\n {i}. ", style="ai")
         content.append(f"{cmd}\n", style="bold white")
         content.append(f"    ↳ {exp}\n", style="dim italic")
 

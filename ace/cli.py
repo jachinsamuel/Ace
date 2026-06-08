@@ -1,5 +1,14 @@
-from typing import Optional
+import sys
+from typing import Optional, List
+import click
 import typer
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except AttributeError:
+    pass
+
 from rich.table import Table
 from rich.panel import Panel
 from ace import __version__
@@ -22,11 +31,45 @@ from ace.ui.display import (
 )
 from ace.ui.prompts import confirm, prompt_action
 
+from typer.core import TyperGroup
+
+class NaturalLanguageGroup(TyperGroup):
+    def parse_args(self, ctx, args):
+        subcommand_names = list(self.commands.keys())
+        
+        # Check if any argument matches a registered subcommand name
+        has_subcommand = False
+        for arg in args:
+            if not arg.startswith("-"):
+                if arg in subcommand_names:
+                    has_subcommand = True
+                break
+                
+        if not has_subcommand and args:
+            # Separate option flags from query arguments
+            option_flags = [arg for arg in args if arg.startswith("-")]
+            query_args = [arg for arg in args if not arg.startswith("-")]
+            
+            # Let Click parse only the option flags for the main group
+            res = super().parse_args(ctx, option_flags)
+            # Store the query arguments in ctx.args for the main callback to consume
+            ctx.args = query_args
+            return res
+            
+        return super().parse_args(ctx, args)
+
+
+
 app = typer.Typer(
     name="ace",
     help="Ace — AI-Powered Git Copilot. Talk to Git in plain English.",
-    no_args_is_help=True,
+    no_args_is_help=False,
+    cls=NaturalLanguageGroup,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
+
+
+
 
 def version_callback(value: bool):
     if value:
@@ -50,7 +93,8 @@ def main(
         
     if not ctx.args:
         # No query and no subcommand, Typer will show help
-        return
+        console.print(ctx.get_help())
+        raise typer.Exit()
 
     query = " ".join(ctx.args)
 
@@ -131,18 +175,37 @@ def main(
     outputs = []
     for cmd in commands:
         print_info(f"Executing: {cmd}")
-        # Strip git prefix
-        if cmd.startswith("git "):
-            git_args = cmd[4:]
+        if cmd.startswith("ace "):
+            subcmd = cmd[4:].strip()
+            if subcmd == "commit":
+                try:
+                    commit_cmd(offline=offline)
+                    outputs.append("Smart commit executed successfully.")
+                except Exception as e:
+                    show_error_panel(f"Failed to run smart commit: {e}", "Ace Error")
+                    raise typer.Exit(code=1)
+            elif subcmd.startswith("review"):
+                try:
+                    review_cmd(all_changes=True, offline=offline)
+                    outputs.append("Code review completed.")
+                except Exception as e:
+                    show_error_panel(f"Failed to run code review: {e}", "Ace Error")
+                    raise typer.Exit(code=1)
+            else:
+                try:
+                    res = git_ops.execute(cmd)
+                    outputs.append(res)
+                except Exception as e:
+                    show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
+                    raise typer.Exit(code=1)
         else:
-            git_args = cmd
-            
-        try:
-            res = git_ops.execute(git_args)
-            outputs.append(res)
-        except Exception as e:
-            show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
-            raise typer.Exit(code=1)
+            git_args = cmd[4:] if cmd.startswith("git ") else cmd
+            try:
+                res = git_ops.execute(git_args)
+                outputs.append(res)
+            except Exception as e:
+                show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
+                raise typer.Exit(code=1)
 
     # Summarization flow for read-only history queries
     combined_output = "\n".join(outputs)
@@ -301,9 +364,19 @@ def commit_cmd(
 
 @app.command(name="setup", help="Initial configuration wizard for Ace.")
 def setup_cmd():
-    console.print("\n[bold purple]Welcome to Ace AI Git Copilot Setup![/bold purple] 🚀\n")
+    banner = """
+[bold orange3] █████╗   ██████╗ ███████╗[/bold orange3]
+[bold orange3]██╔══██╗ ██╔════╝ ██╔════╝[/bold orange3]
+[bold orange3]███████║ ██║      █████╗  [/bold orange3]
+[bold orange3]██╔══██║ ██║      ██╔══╝  [/bold orange3]
+[bold orange3]██║  ██║ ╚██████╗ ███████╗[/bold orange3]
+[bold orange3]╚═╝  ╚═╝  ╚═════╝ ╚══════╝[/bold orange3]
+"""
+    console.print(banner)
+    console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup![/bold orange3] 🚀\n")
     
     config = get_config()
+
     
     # Provider select
     provider = typer.prompt("Select AI Provider (nvidia or ollama)", default=config.ai.provider)
@@ -347,7 +420,7 @@ def setup_cmd():
 def config_cmd():
     config = get_config()
     
-    table = Table(title="Ace Active Configuration", show_header=True, header_style="bold purple")
+    table = Table(title="Ace Active Configuration", show_header=True, header_style="bold orange3")
     table.add_column("Section")
     table.add_column("Setting")
     table.add_column("Value")
@@ -465,7 +538,7 @@ def resolve_cmd(
     resolver = ConflictResolver(git_ops)
 
     for file_path in conflicts:
-        console.print(f"\n[bold purple]Resolving conflicts in: {file_path}[/bold purple]")
+        console.print(f"\n[bold orange3]Resolving conflicts in: {file_path}[/bold orange3]")
         
         try:
             with spinner(f"Analyzing conflicts in {file_path}..."):
@@ -494,7 +567,7 @@ def resolve_cmd(
             console.print("[bold cyan]>>>>>>> (Incoming Changes)[/bold cyan]\n")
             
             # Print AI suggestion
-            console.print("[bold purple]🧠 AI Suggestion:[/bold purple] Keep incoming/HEAD or merged?")
+            console.print("[bold orange3]🧠 AI Suggestion:[/bold orange3] Keep incoming/HEAD or merged?")
             console.print(f"   [dim]{sugg['explanation']}[/dim]")
             console.print("\n[dim]Suggested Merged Content:[/dim]")
             console.print(Panel(sugg["suggested_merged"], border_style="dim"))
@@ -605,7 +678,7 @@ def stats_cmd():
         raise typer.Exit(code=0)
 
     # 1. Overview Table
-    overview = Table(title="Repository Overview", show_header=True, header_style="bold purple")
+    overview = Table(title="Repository Overview", show_header=True, header_style="bold orange3")
     overview.add_column("Metric")
     overview.add_column("Value")
     
@@ -634,7 +707,7 @@ def stats_cmd():
         bar = "█" * bar_len + "░" * (20 - bar_len)
         la = lines_info.get(author, {"added": 0, "deleted": 0})
         lines_str = f"[green]+{la['added']}[/green]/[red]-{la['deleted']}[/red]"
-        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, f"[purple]{bar}[/purple]")
+        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, f"[orange3]{bar}[/orange3]")
 
     console.print(contrib_table)
     console.print()
@@ -926,7 +999,7 @@ def search_cmd(
         print_warning("No matching commits found.")
         raise typer.Exit(code=0)
 
-    table = Table(title=f"Semantic Search Results for '{query}'", show_header=True, header_style="bold purple")
+    table = Table(title=f"Semantic Search Results for '{query}'", show_header=True, header_style="bold orange3")
     table.add_column("Commit", style="dim", width=8)
     table.add_column("Summary", style="bold green")
     table.add_column("Match Explanation")
@@ -991,8 +1064,36 @@ def ignore_cmd(
     else:
         print_info("Cancelled. No changes made.")
 
+@app.command(name="add", help="Stage files (git add) to prepare for commit.")
+def add_cmd(
+    files: List[str] = typer.Argument(..., help="Files or patterns to stage (use '.' to stage all changes)"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    files_str = " ".join(files)
+    try:
+        with spinner(f"Staging changes for: {files_str}..."):
+            res = git_ops.execute(f"add {files_str}")
+        print_success(f"Successfully staged: {files_str}")
+        if res.strip():
+            console.print(res)
+    except Exception as e:
+        show_error_panel(f"Failed to stage files: {e}", "Git Error")
+        raise typer.Exit(code=1)
+
+@app.command(name="stage", help="Stage files (git add) to prepare for commit.")
+def stage_cmd(
+    files: List[str] = typer.Argument(..., help="Files or patterns to stage (use '.' to stage all changes)"),
+):
+    add_cmd(files)
+
 if __name__ == "__main__":
     app()
+
 
 
 

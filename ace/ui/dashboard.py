@@ -15,7 +15,17 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         click.clear()
         
         # 1. Header
-        console.print(Panel("[bold purple]🚀 Ace AI Git Copilot Interactive Dashboard[/bold purple]", border_style="purple"))
+        banner = """
+[bold orange3] █████╗   ██████╗ ███████╗[/bold orange3]
+[bold orange3]██╔══██╗ ██╔════╝ ██╔════╝[/bold orange3]
+[bold orange3]███████║ ██║      █████╗  [/bold orange3]
+[bold orange3]██╔══██║ ██║      ██╔══╝  [/bold orange3]
+[bold orange3]██║  ██║ ╚██████╗ ███████╗[/bold orange3]
+[bold orange3]╚═╝  ╚═╝  ╚═════╝ ╚══════╝[/bold orange3]
+"""
+        console.print(banner)
+        console.print("[bold orange3]🚀 Ace AI Git Copilot Interactive Dashboard[/bold orange3]\n")
+
         
         # 2. Retrieve Status
         try:

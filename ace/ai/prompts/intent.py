@@ -17,7 +17,7 @@ You MUST return a JSON response containing exactly the following keys, and nothi
 }
 
 ### Guidelines:
-1. All commands in the list MUST start with `git `.
+1. All commands in the list MUST start with `git `, except for when the user wants to commit changes or review code, in which case you should output `ace commit` (for interactive smart commits) or `ace review` (for code reviews).
 2. Use the provided repository context to resolve branch names, remote names, or files where appropriate.
 3. If the request is not related to Git or cannot be resolved, return an empty command list `[]` and explain why in `explanation`.
 4. Command execution logic should prefer modern, standard Git practices (e.g. `git restore` over `git checkout` for file reversion where appropriate, but `git checkout` is acceptable).
@@ -89,6 +89,15 @@ Output:
   "commands": ["git branch --merged"],
   "explanation": "Lists branches that are already merged into the current HEAD. (Note: To delete them, you would run 'git branch -d <branch_name>')",
   "risk_level": "safe",
+  "alternatives": null
+}
+
+Query: "add all files and commit"
+Output:
+{
+  "commands": ["git add .", "ace commit"],
+  "explanation": "Stages all changes in the directory, and then opens the interactive smart commit wizard to generate a Conventional Commit message.",
+  "risk_level": "moderate",
   "alternatives": null
 }
 """.strip()

@@ -35,7 +35,7 @@ env/
 *.swo
 
 # Environment secrets
-.env
+*.env
 .env.local
 
 # Testing / Coverage

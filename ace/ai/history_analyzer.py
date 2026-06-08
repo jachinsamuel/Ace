@@ -1,4 +1,6 @@
 import collections
+import os
+import datetime
 from typing import Dict, Any
 from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
@@ -70,8 +72,69 @@ class HistoryAnalyzer:
         branches = self.git_ops.get_branches()
 
         # Files changed counts (approximate from diff-tree of recent commits)
-        # We can run git status as well
         status = self.git_ops.get_status()
+
+        # Lines of code changes per author
+        try:
+            numstat_data = self.git_ops.execute('log --numstat --format="AUTHOR:%an"')
+        except Exception:
+            numstat_data = ""
+        
+        author_lines = {}
+        current_author = None
+        for line in numstat_data.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("AUTHOR:"):
+                current_author = line[7:]
+                if current_author not in author_lines:
+                    author_lines[current_author] = {"added": 0, "deleted": 0}
+            elif current_author:
+                parts = line.split()
+                if len(parts) >= 3:
+                    try:
+                        added = int(parts[0])
+                        deleted = int(parts[1])
+                        author_lines[current_author]["added"] += added
+                        author_lines[current_author]["deleted"] += deleted
+                    except ValueError:
+                        pass
+
+        # File type distribution (extensions)
+        try:
+            files_list = self.git_ops.execute("ls-files")
+        except Exception:
+            files_list = ""
+            
+        extensions = []
+        for f in files_list.splitlines():
+            f = f.strip()
+            if not f:
+                continue
+            _, ext = os.path.splitext(f)
+            if ext:
+                extensions.append(ext.lower())
+            else:
+                extensions.append("(no extension)")
+                
+        extension_counts = collections.Counter(extensions)
+
+        # Commit timeline (last 14 days)
+        try:
+            dates_data = self.git_ops.execute("log --format=%ad --date=short")
+        except Exception:
+            dates_data = ""
+            
+        date_counts = collections.Counter(dates_data.splitlines())
+        today = datetime.date.today()
+        last_14_days = [today - datetime.timedelta(days=i) for i in range(13, -1, -1)]
+        
+        timeline = []
+        for d in last_14_days:
+            date_str = d.isoformat()
+            count = date_counts.get(date_str, 0)
+            timeline.append((date_str, count))
 
         return {
             "total_commits": total_commits,
@@ -80,4 +143,46 @@ class HistoryAnalyzer:
             "staged_count": len(status["staged"]),
             "unstaged_count": len(status["unstaged"]),
             "untracked_count": len(status["untracked"]),
+            "lines_per_author": author_lines,
+            "extension_counts": dict(extension_counts.most_common(5)),
+            "timeline": timeline,
         }
+
+
+    def semantic_search(self, query: str, limit: int = 50, offline: bool = False) -> Dict[str, Any]:
+        """
+        Retrieves the last `limit` commits, sends them to the LLM along with the search query,
+        and returns the semantically matching commits.
+        """
+        commits = self.git_ops.get_log(n=limit)
+        if not commits:
+            return {"matches": []}
+
+        history_lines = []
+        for c in commits:
+            history_lines.append(
+                f"Commit: {c['hexsha']}\nAuthor: {c['author']}\nDate: {c['date']}\nSummary: {c['summary']}\nMessage: {c['message']}\n---"
+            )
+        commit_history_text = "\n".join(history_lines)
+
+        from ace.ai.prompts.search import SEARCH_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+        from ace.utils.json_utils import extract_json
+
+        llm = get_llm(offline_override=offline)
+        
+        if len(commit_history_text) > 25000:
+            commit_history_text = commit_history_text[:25000] + "\n\n... (history truncated due to size) ..."
+
+        usr_prompt = USER_PROMPT_TEMPLATE.format(
+            query=query,
+            commit_history=commit_history_text
+        )
+
+        messages = [
+            SystemMessage(content=SEARCH_SYSTEM_PROMPT),
+            HumanMessage(content=usr_prompt)
+        ]
+
+        response = llm.invoke(messages)
+        return extract_json(response.content)
+

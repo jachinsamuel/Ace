@@ -618,22 +618,62 @@ def stats_cmd():
     console.print(overview)
     console.print()
 
-    # 2. Contributors Table
+    # 2. Contributors Table (Enhanced with Line changes)
     contrib_table = Table(title="Top Contributors", show_header=True, header_style="bold green")
     contrib_table.add_column("Author")
-    contrib_table.add_column("Commits")
-    contrib_table.add_column("Activity Bar")
+    contrib_table.add_column("Commits", justify="right")
+    contrib_table.add_column("Lines Added/Deleted", justify="center")
+    contrib_table.add_column("Activity Bar", justify="left")
 
     total_commits = stats["total_commits"]
+    lines_info = stats.get("lines_per_author", {})
     
     for author, count in stats["contributors"][:10]: # Top 10
         pct = (count / total_commits) * 100
-        # Create a simple text bar
         bar_len = int(pct / 5) # 20 blocks max
         bar = "█" * bar_len + "░" * (20 - bar_len)
-        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", f"[purple]{bar}[/purple]")
+        la = lines_info.get(author, {"added": 0, "deleted": 0})
+        lines_str = f"[green]+{la['added']}[/green]/[red]-{la['deleted']}[/red]"
+        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, f"[purple]{bar}[/purple]")
 
     console.print(contrib_table)
+    console.print()
+
+    # 3. File Extension Distribution Table
+    ext_info = stats.get("extension_counts", {})
+    if ext_info:
+        ext_table = Table(title="File Extension Distribution (Top 5)", show_header=True, header_style="bold yellow")
+        ext_table.add_column("Extension")
+        ext_table.add_column("Files Count", justify="right")
+        ext_table.add_column("Percentage Bar")
+        
+        total_files = sum(ext_info.values())
+        for ext, count in ext_info.items():
+            pct = (count / total_files) * 100 if total_files else 0
+            bar_len = int(pct / 5) # 20 blocks max
+            bar = "█" * bar_len + "░" * (20 - bar_len)
+            ext_table.add_row(ext, str(count), f"[yellow]{bar}[/yellow]")
+            
+        console.print(ext_table)
+        console.print()
+
+    # 4. Activity Timeline Table (Last 14 Days)
+    timeline = stats.get("timeline", [])
+    if timeline:
+        max_commits_day = max([item[1] for item in timeline]) or 1
+        timeline_table = Table(title="Commit Activity (Last 14 Days)", show_header=True, header_style="bold blue")
+        timeline_table.add_column("Date")
+        timeline_table.add_column("Commits", justify="right")
+        timeline_table.add_column("Activity Graph")
+        
+        for date_str, count in timeline:
+            bar_len = int((count / max_commits_day) * 20) if count else 0
+            bar = "█" * bar_len
+            timeline_table.add_row(date_str, str(count), f"[blue]{bar}[/blue]")
+            
+        console.print(timeline_table)
+        console.print()
+
 
 @app.command(name="explain", help="Explain a Git command, flag, concept, or error in plain English.")
 def explain_cmd(
@@ -789,5 +829,170 @@ def undo_cmd(
 
     print_success("Undo plan executed successfully!")
 
+@app.command(name="dash", help="Interactive terminal dashboard for repository management.")
+def dash_cmd(
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.ui.dashboard import show_dashboard
+    show_dashboard(git_ops, offline=offline)
+
+@app.command(name="pr", help="Generate a pull request description from branch changes.")
+def pr_cmd(
+    base: Optional[str] = typer.Option(None, "--base", "-b", help="Base branch/commit to compare against (defaults to remote tracking or 'main')"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="File to write the generated PR description to"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    # If base is not specified, try to find upstream tracking or fall back to main/master
+    if not base:
+        tracking = git_ops.get_upstream_tracking()
+        if tracking:
+            base = tracking
+        else:
+            branches = git_ops.get_branches()
+            if "main" in branches:
+                base = "main"
+            elif "master" in branches:
+                base = "master"
+            else:
+                base = "main"
+
+    from ace.ai.pr_drafter import PRDrafter
+    drafter = PRDrafter(git_ops)
+
+    try:
+        with spinner(f"Generating PR description against base branch '{base}'..."):
+            pr_data = drafter.draft_pr(base, offline=offline)
+    except Exception as e:
+        show_error_panel(f"Failed to generate PR description: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    title = pr_data.get("title", "Pull Request")
+    body = pr_data.get("body", "")
+
+    full_markdown = f"# PR: {title}\n\n{body}"
+
+    if output:
+        try:
+            with open(output, "w", encoding="utf-8") as f:
+                f.write(full_markdown)
+            print_success(f"PR description successfully written to {output}!")
+        except Exception as e:
+            show_error_panel(f"Failed to write PR to {output}: {e}", "File Error")
+            raise typer.Exit(code=1)
+    else:
+        from rich.markdown import Markdown
+        console.print()
+        console.print(Panel(f"[bold cyan]Proposed PR Title:[/bold cyan]\n{title}", border_style="cyan"))
+        console.print()
+        console.print(Markdown(body))
+        console.print()
+
+@app.command(name="search", help="Semantic commit search using natural language.")
+def search_cmd(
+    query: str = typer.Argument(..., help="Search query (e.g. 'nvidia credential fix')"),
+    limit: int = typer.Option(50, "--limit", "-l", help="Number of recent commits to search"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.ai.history_analyzer import HistoryAnalyzer
+    analyzer = HistoryAnalyzer(git_ops)
+
+    try:
+        with spinner(f"Semantically searching last {limit} commits for '{query}'..."):
+            results = analyzer.semantic_search(query, limit=limit, offline=offline)
+    except Exception as e:
+        show_error_panel(f"Search failed: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    matches = results.get("matches", [])
+    if not matches:
+        print_warning("No matching commits found.")
+        raise typer.Exit(code=0)
+
+    table = Table(title=f"Semantic Search Results for '{query}'", show_header=True, header_style="bold purple")
+    table.add_column("Commit", style="dim", width=8)
+    table.add_column("Summary", style="bold green")
+    table.add_column("Match Explanation")
+
+    for match in matches:
+        table.add_row(match.get("hexsha", "")[:7], match.get("summary", ""), match.get("reason", ""))
+
+    console.print()
+    console.print(table)
+    console.print()
+
+@app.command(name="ignore", help="Smart gitignore generation and template addition.")
+def ignore_cmd(
+    query: str = typer.Argument(..., help="What to ignore (e.g. 'node_modules', 'temp files')"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.ai.gitignore_generator import GitignoreGenerator
+    generator = GitignoreGenerator(git_ops)
+
+    try:
+        with spinner(f"Generating .gitignore rules for '{query}'..."):
+            res = generator.generate_rules(query, offline=offline)
+    except Exception as e:
+        show_error_panel(f"Failed to generate rules: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    rules = res.get("rules", "")
+    explanation = res.get("explanation", "")
+
+    if not rules.strip():
+        print_warning("No new rules needed.")
+        console.print(f"Explanation: {explanation}")
+        raise typer.Exit(code=0)
+
+    console.print(Panel(rules, title="[bold yellow]Proposed .gitignore Rules[/bold yellow]", border_style="yellow"))
+    console.print(f"\n[bold]Explanation:[/bold] {explanation}\n")
+
+    if confirm("Append these rules to your .gitignore?", default=True):
+        gitignore_path = os.path.join(git_ops.working_dir, ".gitignore")
+        try:
+            prepend_newline = False
+            if os.path.exists(gitignore_path) and os.path.getsize(gitignore_path) > 0:
+                with open(gitignore_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    if content and not content.endswith("\n"):
+                        prepend_newline = True
+
+            with open(gitignore_path, "a", encoding="utf-8") as f:
+                if prepend_newline:
+                    f.write("\n")
+                f.write(rules + "\n")
+            print_success("Rules successfully appended to .gitignore!")
+        except Exception as e:
+            show_error_panel(f"Failed to update .gitignore: {e}", "File Error")
+            raise typer.Exit(code=1)
+    else:
+        print_info("Cancelled. No changes made.")
+
 if __name__ == "__main__":
     app()
+
+
+

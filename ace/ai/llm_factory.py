@@ -14,7 +14,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
     """
     config = get_config()
     
-    # Detemine provider (override if offline requested)
+    # Determine provider (override if offline requested)
     provider = "ollama" if offline_override else config.ai.provider
     
     if provider == "nvidia":
@@ -29,6 +29,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
         return ChatNVIDIA(
             model=config.ai.nvidia_model,
             api_key=api_key,
+            base_url="https://integrate.api.nvidia.com/v1",
             temperature=0.0,
             max_tokens=2048,
         )

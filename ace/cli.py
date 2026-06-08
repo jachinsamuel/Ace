@@ -1,0 +1,793 @@
+from typing import Optional
+import typer
+from rich.table import Table
+from rich.panel import Panel
+from ace import __version__
+from ace.core.config import get_config, save_config, DEFAULT_CONFIG_PATH
+from ace.core.git_ops import GitOps, NotAGitRepositoryError
+from ace.ai.commit_generator import CommitGenerator, NoStagedChangesError
+from ace.ai.llm_factory import get_llm, LLMConfigurationError
+from ace.ai.intent_parser import IntentParser
+from ace.core.safety import SafetyChecker
+from ace.ui.display import (
+    console,
+    print_info,
+    print_success,
+    print_warning,
+    print_error,
+    show_error_panel,
+    show_warning_panel,
+    show_commit_message,
+    spinner,
+)
+from ace.ui.prompts import confirm, prompt_action
+
+app = typer.Typer(
+    name="ace",
+    help="Ace — AI-Powered Git Copilot. Talk to Git in plain English.",
+    no_args_is_help=True,
+)
+
+def version_callback(value: bool):
+    if value:
+        console.print(f"Ace version: [bold cyan]{__version__}[/bold cyan]")
+        raise typer.Exit()
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    dry_run: bool = typer.Option(False, "--dry-run", "-d", help="Show what would be done, don't execute"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmations"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed AI reasoning"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+    version: Optional[bool] = typer.Option(
+        None, "--version", callback=version_callback, is_eager=True, help="Show the version and exit."
+    ),
+):
+    if ctx.invoked_subcommand is not None:
+        # A subcommand was invoked, let it execute
+        return
+        
+    if not ctx.args:
+        # No query and no subcommand, Typer will show help
+        return
+
+    query = " ".join(ctx.args)
+
+    # Initialize GitOps
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    console.print(f"🧠 Understanding request: [italic]\"{query}\"[/italic]...")
+    parser = IntentParser(git_ops)
+
+    try:
+        with spinner("Planning Git commands..."):
+            parsed = parser.parse_intent(query, offline=offline)
+    except LLMConfigurationError as e:
+        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        show_error_panel(f"Failed to plan commands: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    commands = parsed.get("commands", [])
+    explanation = parsed.get("explanation", "")
+
+    if not commands:
+        print_warning("No Git commands planned.")
+        console.print(f"\n[bold]Explanation:[/bold] {explanation}\n")
+        raise typer.Exit(code=0)
+
+    # Show the proposed plan
+    from ace.ui.display import show_plan
+    # Fill explanations list of matching length
+    show_plan(commands, [explanation] + [""] * (len(commands) - 1))
+
+    # Evaluate safety for all planned commands
+    highest_risk = "safe"
+    risk_details = []
+    safer_alts = []
+    
+    for cmd in commands:
+        r_level, r_desc, alt = SafetyChecker.analyze_command(cmd)
+        if r_level == "destructive":
+            highest_risk = "destructive"
+            risk_details.append(f"[bold red]Command:[/bold] {cmd}\n[bold red]Risk:[/bold] {r_desc}")
+            if alt:
+                safer_alts.append(f"[bold green]Safer Alternative:[/bold] {alt}")
+        elif r_level == "moderate" and highest_risk != "destructive":
+            highest_risk = "moderate"
+
+    # Handle dry run
+    if dry_run:
+        print_info("Dry-run mode: execution skipped.")
+        raise typer.Exit(code=0)
+
+    # Confirmation flow
+    if highest_risk == "destructive":
+        if yes:
+            print_warning("Executing destructive commands due to --yes flag.")
+        else:
+            show_warning_panel(
+                "\n\n".join(risk_details) + ("\n\n" + "\n".join(safer_alts) if safer_alts else ""),
+                "⚠️ DESTRUCTIVE OPERATION DETECTED"
+            )
+            if not confirm("Are you sure you want to execute these destructive commands?", default=False):
+                print_info("Execution aborted.")
+                raise typer.Exit(code=0)
+    elif highest_risk == "moderate":
+        if not yes:
+            if not confirm("Do you want to execute this plan?", default=True):
+                print_info("Execution aborted.")
+                raise typer.Exit(code=0)
+    # Safe commands execute directly
+
+    # Execute commands
+    # Execute commands and capture output
+    outputs = []
+    for cmd in commands:
+        print_info(f"Executing: {cmd}")
+        # Strip git prefix
+        if cmd.startswith("git "):
+            git_args = cmd[4:]
+        else:
+            git_args = cmd
+            
+        try:
+            res = git_ops.execute(git_args)
+            outputs.append(res)
+        except Exception as e:
+            show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
+            raise typer.Exit(code=1)
+
+    # Summarization flow for read-only history queries
+    combined_output = "\n".join(outputs)
+    if highest_risk == "safe" and combined_output.strip():
+        from ace.ai.history_analyzer import HistoryAnalyzer
+        from rich.markdown import Markdown
+        analyzer = HistoryAnalyzer(git_ops)
+        
+        try:
+            with spinner("Analyzing result and summarizing..."):
+                summary = analyzer.summarize_query(query, commands[0], combined_output, offline=offline)
+            console.print()
+            console.print(Markdown(summary))
+            console.print()
+        except Exception:
+            # Fallback to printing raw output
+            console.print(combined_output)
+    else:
+        # Just print raw outputs for moderate/destructive actions
+        for out in outputs:
+            if out.strip():
+                console.print(out)
+                
+    print_success("Plan executed successfully!")
+
+@app.command(name="commit", help="Generate a smart commit message from staged changes and commit.")
+def commit_cmd(
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+    format_override: Optional[str] = typer.Option(
+        None, "--format", "-f", help="Override commit format (conventional, simple, detailed)"
+    ),
+):
+    # Initialize GitOps
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    config = get_config()
+    format_type = format_override or config.commit.format
+
+    # Stage checking and generation
+    generator = CommitGenerator(git_ops)
+    msg = None
+    
+    while True:
+        if not msg:
+            try:
+                with spinner("Analyzing changes and generating commit message..."):
+                    msg = generator.generate_message(format_type=format_type, offline=offline)
+            except NoStagedChangesError as e:
+                show_warning_panel(
+                    f"{str(e)}\n\n[bold]Tip:[/bold] Stage your files first: [command]git add <files>[/command]",
+                    "No Staged Changes"
+                )
+                raise typer.Exit(code=0)
+            except LLMConfigurationError as e:
+                show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+                raise typer.Exit(code=1)
+            except Exception as e:
+                show_error_panel(f"Failed to generate commit message: {e}", "AI Error")
+                raise typer.Exit(code=1)
+
+        show_commit_message(msg)
+
+        # Prompt user for action
+        options = {
+            "\r": ("Accept & Commit", "Use this message and commit"),
+            "e": ("Edit", "Open message in editor"),
+            "r": ("Regenerate", "Generate a new message"),
+            "c": ("Switch format", "Switch to conventional/simple/detailed"),
+            "s": ("Skip", "Abort commit process"),
+        }
+        
+        choice = prompt_action(options, default_key="\r")
+        
+        if choice == "\r":
+            # Commit changes
+            try:
+                result = git_ops.commit(msg, sign=config.commit.sign)
+                print_success("Committed changes successfully!")
+                console.print(f"[dim]{result}[/dim]")
+                break
+            except Exception as e:
+                show_error_panel(f"Failed to commit: {e}", "Git Commit Error")
+                raise typer.Exit(code=1)
+                
+        elif choice == "e":
+            # Edit in editor
+            edited = typer.edit(msg)
+            if edited is not None and edited.strip():
+                msg = edited.strip()
+            else:
+                print_info("No edits made or empty message. Keeping previous message.")
+                
+        elif choice == "r":
+            # Force regeneration on next iteration
+            msg = None
+            
+        elif choice == "c":
+            # Switch format
+            console.print("\n[bold]Select commit format:[/bold]")
+            console.print("  [1] Conventional Commits (default)")
+            console.print("  [2] Simple (one-liner)")
+            console.print("  [3] Detailed (multi-paragraph)")
+            
+            format_choice = typer.prompt("Choose option", default="1")
+            if format_choice == "1":
+                format_type = "conventional"
+            elif format_choice == "2":
+                format_type = "simple"
+            elif format_choice == "3":
+                format_type = "detailed"
+            msg = None  # Force regenerate in new format
+            
+        elif choice == "s":
+            console.print("[yellow]Commit aborted.[/yellow]")
+            raise typer.Exit(code=0)
+
+    # Post commit flow: Pushing
+    # Detect remote tracking branch
+    upstream = git_ops.get_upstream_tracking()
+    current_branch = git_ops.get_current_branch()
+    
+    if not current_branch:
+        # Detached HEAD, don't ask to push
+        return
+
+    # Check ahead/behind if tracking remote exists
+    ab = git_ops.get_ahead_behind()
+    ahead = ab.get("ahead", 0)
+    
+    # If we just committed, we are at least 1 commit ahead (or more if local commits were unpushed)
+    if not upstream:
+        # Prompt to set upstream
+        if confirm(f"No upstream remote branch set for '{current_branch}'. Push and set upstream to 'origin/{current_branch}'?", default=True):
+            try:
+                with spinner(f"Pushing '{current_branch}' to origin and setting upstream..."):
+                    push_res = git_ops.push(remote="origin", branch=current_branch, set_upstream=True)
+                print_success("Pushed and set upstream branch successfully!")
+                console.print(f"[dim]{push_res}[/dim]")
+            except Exception as e:
+                show_error_panel(f"Push failed: {e}", "Git Push Error")
+    else:
+        # Upstream exists
+        msg_push = f"Push to upstream branch '{upstream}'? (Your branch is {ahead} commit(s) ahead of remote)"
+        if confirm(msg_push, default=True):
+            try:
+                with spinner(f"Pushing to {upstream}..."):
+                    push_res = git_ops.push()
+                print_success("Pushed to remote successfully!")
+                console.print(f"[dim]{push_res}[/dim]")
+            except Exception as e:
+                show_error_panel(f"Push failed: {e}", "Git Push Error")
+
+@app.command(name="setup", help="Initial configuration wizard for Ace.")
+def setup_cmd():
+    console.print("\n[bold purple]Welcome to Ace AI Git Copilot Setup![/bold purple] 🚀\n")
+    
+    config = get_config()
+    
+    # Provider select
+    provider = typer.prompt("Select AI Provider (nvidia or ollama)", default=config.ai.provider)
+    provider = provider.lower().strip()
+    if provider not in ("nvidia", "ollama"):
+        print_error("Invalid provider. Defaulting to 'nvidia'.")
+        provider = "nvidia"
+        
+    config.ai.provider = provider
+    
+    # NVIDIA setup
+    if provider == "nvidia":
+        nvidia_key = typer.prompt("Enter your NVIDIA API Key", default=config.ai.nvidia_api_key, hide_input=True)
+        config.ai.nvidia_api_key = nvidia_key
+        nvidia_model = typer.prompt("NVIDIA LLM Model name", default=config.ai.nvidia_model)
+        config.ai.nvidia_model = nvidia_model
+        
+    # Ollama setup
+    elif provider == "ollama":
+        ollama_url = typer.prompt("Ollama server URL", default=config.ai.ollama_url)
+        config.ai.ollama_url = ollama_url
+        ollama_model = typer.prompt("Ollama model name", default=config.ai.ollama_model)
+        config.ai.ollama_model = ollama_model
+        
+    # Commit pref setup
+    commit_format = typer.prompt("Default commit format (conventional, simple, detailed)", default=config.commit.format)
+    if commit_format.lower().strip() in ("conventional", "simple", "detailed"):
+        config.commit.format = commit_format.lower().strip()
+        
+    sign_commits = confirm("Should Ace sign commits by default (GPG/SSH)?", default=config.commit.sign)
+    config.commit.sign = sign_commits
+    
+    # Save config
+    try:
+        save_config(config)
+        print_success(f"Configuration saved successfully to {DEFAULT_CONFIG_PATH}")
+    except Exception as e:
+        show_error_panel(str(e), "Save Configuration Error")
+
+@app.command(name="config", help="View the current active configuration.")
+def config_cmd():
+    config = get_config()
+    
+    table = Table(title="Ace Active Configuration", show_header=True, header_style="bold purple")
+    table.add_column("Section")
+    table.add_column("Setting")
+    table.add_column("Value")
+    
+    # Mask API key
+    nv_key = config.ai.nvidia_api_key
+    masked_key = nv_key[:8] + "..." if nv_key else "Not set"
+    
+    # Add items
+    table.add_row("AI", "Provider", config.ai.provider)
+    table.add_row("AI", "NVIDIA API Key", masked_key)
+    table.add_row("AI", "NVIDIA Model", config.ai.nvidia_model)
+    table.add_row("AI", "Ollama URL", config.ai.ollama_url)
+    table.add_row("AI", "Ollama Model", config.ai.ollama_model)
+    
+    table.add_row("Commit", "Default Format", config.commit.format)
+    table.add_row("Commit", "Sign Commits", str(config.commit.sign))
+    table.add_row("Commit", "Use Emoji", str(config.commit.emoji))
+    
+    table.add_row("Review", "Severity Threshold", config.review.severity)
+    
+    table.add_row("Safety", "Confirm Destructive", str(config.safety.confirm_destructive))
+    table.add_row("Safety", "Auto Stash", str(config.safety.auto_stash))
+    
+    console.print(table)
+    print_info(f"Config file located at: {DEFAULT_CONFIG_PATH}")
+
+@app.command(name="review", help="AI code review of staged, unstaged, or branch changes.")
+def review_cmd(
+    file: Optional[str] = typer.Argument(None, help="Specific file to review"),
+    all_changes: bool = typer.Option(False, "--all", "-a", help="Review all uncommitted changes (staged + unstaged)"),
+    branch: Optional[str] = typer.Option(None, "--branch", "-b", help="Review all changes against a base branch/commit"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    # Initialize GitOps
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    # Resolve diff contents
+    diff_text = ""
+    
+    if file:
+        # Review specific file (staged + unstaged)
+        staged_f = git_ops.repo.git.diff("--staged", file)
+        unstaged_f = git_ops.repo.git.diff(file)
+        diff_text = staged_f + "\n" + unstaged_f
+        desc = f"changes in file '{file}'"
+    elif branch:
+        # Review changes against base branch
+        try:
+            diff_text = git_ops.get_branch_diff(branch)
+            desc = f"changes in current branch against '{branch}'"
+        except Exception as e:
+            show_error_panel(f"Failed to get branch diff against '{branch}': {e}", "Git Error")
+            raise typer.Exit(code=1)
+    elif all_changes:
+        # Review staged + unstaged changes
+        try:
+            diff_text = git_ops.repo.git.diff("HEAD")
+        except Exception:
+            # Fallback if no commits exist
+            diff_text = git_ops.repo.git.diff()
+        desc = "all uncommitted changes (staged + unstaged)"
+    else:
+        # Default: review staged changes only
+        diff_text = git_ops.get_staged_diff()
+        desc = "staged changes"
+
+    if not diff_text.strip():
+        show_warning_panel(f"No changes detected to review for {desc}.", "Empty Diff")
+        raise typer.Exit(code=0)
+
+    # Run AI review
+    from ace.ai.code_reviewer import CodeReviewer
+    from ace.ui.display import show_review
+    
+    reviewer = CodeReviewer(git_ops)
+    
+    try:
+        with spinner(f"Analyzing {desc} and reviewing code..."):
+            findings, score = reviewer.review_diff(diff_text, offline=offline)
+    except LLMConfigurationError as e:
+        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        show_error_panel(f"Code review failed: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    show_review(findings, score)
+
+@app.command(name="resolve", help="AI-assisted merge conflict resolution.")
+def resolve_cmd(
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    conflicts = git_ops.get_conflicts()
+    if not conflicts:
+        print_success("No merge conflicts detected! Your workspace is clean.")
+        raise typer.Exit(code=0)
+
+    console.print(f"\n[bold yellow]🔀 Merge conflicts found in {len(conflicts)} file(s):[/bold yellow]")
+    for f in conflicts:
+        console.print(f"  - {f}")
+    console.print()
+
+    from ace.ai.conflict_resolver import ConflictResolver
+    resolver = ConflictResolver(git_ops)
+
+    for file_path in conflicts:
+        console.print(f"\n[bold purple]Resolving conflicts in: {file_path}[/bold purple]")
+        
+        try:
+            with spinner(f"Analyzing conflicts in {file_path}..."):
+                suggestions = resolver.get_suggestions(file_path, offline=offline)
+        except Exception as e:
+            show_error_panel(f"Failed to parse conflicts for {file_path}: {e}", "Error")
+            continue
+
+        if not suggestions:
+            print_warning(f"No conflict markers found in {file_path}. Skipping.")
+            continue
+
+        replacements = []
+        skip_file = False
+
+        for idx, sugg in enumerate(suggestions, 1):
+            console.print(f"\n[bold]Conflict {idx}/{len(suggestions)} in {file_path}:[/bold]")
+            
+            # Print HEAD
+            console.print("[bold cyan]<<<<<<< HEAD (Your Changes)[/bold cyan]")
+            console.print(sugg["head"])
+            console.print("[bold cyan]=======[/bold cyan]")
+            
+            # Print Incoming
+            console.print(sugg["incoming"])
+            console.print("[bold cyan]>>>>>>> (Incoming Changes)[/bold cyan]\n")
+            
+            # Print AI suggestion
+            console.print("[bold purple]🧠 AI Suggestion:[/bold purple] Keep incoming/HEAD or merged?")
+            console.print(f"   [dim]{sugg['explanation']}[/dim]")
+            console.print("\n[dim]Suggested Merged Content:[/dim]")
+            console.print(Panel(sugg["suggested_merged"], border_style="dim"))
+            console.print()
+
+            options = {
+                "\r": ("Accept AI suggestion", "Use the AI merged block"),
+                "h": ("Keep HEAD", "Keep your local changes"),
+                "i": ("Keep incoming", "Keep the incoming changes"),
+                "m": ("Manual edit", "Open editor to customize merged block"),
+                "s": ("Skip", "Leave this conflict block unresolved"),
+            }
+            
+            choice = prompt_action(options, default_key="\r")
+            
+            if choice == "\r":
+                replacements.append((sugg["full_block"], sugg["suggested_merged"]))
+                print_success("AI suggestion accepted.")
+            elif choice == "h":
+                replacements.append((sugg["full_block"], sugg["head"]))
+                print_success("Keeping HEAD changes.")
+            elif choice == "i":
+                replacements.append((sugg["full_block"], sugg["incoming"]))
+                print_success("Keeping incoming changes.")
+            elif choice == "m":
+                edited = typer.edit(sugg["suggested_merged"])
+                if edited is not None:
+                    replacements.append((sugg["full_block"], edited.strip()))
+                    print_success("Applied manual edit.")
+                else:
+                    replacements.append((sugg["full_block"], sugg["suggested_merged"]))
+                    print_warning("No edits made. Accepted AI suggestion.")
+            elif choice == "s":
+                print_warning("Conflict block skipped.")
+                skip_file = True
+                break
+
+        if not skip_file and replacements:
+            try:
+                resolver.apply_resolution(file_path, replacements)
+                print_success(f"Successfully resolved conflicts in {file_path}!")
+                
+                # Prompt to stage
+                if confirm(f"Stage resolved file '{file_path}' (git add)?", default=True):
+                    git_ops.execute(f"add {file_path}")
+                    print_success(f"Staged {file_path}.")
+            except Exception as e:
+                show_error_panel(f"Failed to apply resolutions to {file_path}: {e}", "Error")
+
+@app.command(name="changelog", help="Generate a markdown changelog from commits.")
+def changelog_cmd(
+    from_ref: Optional[str] = typer.Option(None, "--from", help="Starting tag or commit hash"),
+    to_ref: Optional[str] = typer.Option(None, "--to", help="Ending tag or commit hash (defaults to HEAD)"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="File to write the generated changelog to"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.ai.changelog_generator import ChangelogGenerator
+    generator = ChangelogGenerator(git_ops)
+
+    try:
+        with spinner("Analyzing commits and generating changelog..."):
+            changelog_md = generator.generate_changelog(from_ref, to_ref, offline=offline)
+    except LLMConfigurationError as e:
+        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        show_error_panel(f"Failed to generate changelog: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    # Show or write to file
+    if output:
+        try:
+            with open(output, "w", encoding="utf-8") as f:
+                f.write(changelog_md)
+            print_success(f"Changelog successfully written to {output}!")
+        except Exception as e:
+            show_error_panel(f"Failed to write changelog to {output}: {e}", "File Error")
+            raise typer.Exit(code=1)
+    else:
+        # Print to console
+        from rich.markdown import Markdown
+        console.print()
+        console.print(Markdown(changelog_md))
+        console.print()
+
+@app.command(name="stats", help="Show contribution statistics and repository overview.")
+def stats_cmd():
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.ai.history_analyzer import HistoryAnalyzer
+    analyzer = HistoryAnalyzer(git_ops)
+    
+    with spinner("Gathering repository statistics..."):
+        stats = analyzer.get_repo_stats()
+
+    if not stats:
+        show_warning_panel("No commit history found to generate statistics.", "Empty Repository")
+        raise typer.Exit(code=0)
+
+    # 1. Overview Table
+    overview = Table(title="Repository Overview", show_header=True, header_style="bold purple")
+    overview.add_column("Metric")
+    overview.add_column("Value")
+    
+    overview.add_row("Total Commits", str(stats["total_commits"]))
+    overview.add_row("Active Branches", str(stats["total_branches"]))
+    overview.add_row("Staged Files", str(stats["staged_count"]))
+    overview.add_row("Unstaged Files", str(stats["unstaged_count"]))
+    overview.add_row("Untracked Files", str(stats["untracked_count"]))
+    
+    console.print(overview)
+    console.print()
+
+    # 2. Contributors Table
+    contrib_table = Table(title="Top Contributors", show_header=True, header_style="bold green")
+    contrib_table.add_column("Author")
+    contrib_table.add_column("Commits")
+    contrib_table.add_column("Activity Bar")
+
+    total_commits = stats["total_commits"]
+    
+    for author, count in stats["contributors"][:10]: # Top 10
+        pct = (count / total_commits) * 100
+        # Create a simple text bar
+        bar_len = int(pct / 5) # 20 blocks max
+        bar = "█" * bar_len + "░" * (20 - bar_len)
+        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", f"[purple]{bar}[/purple]")
+
+    console.print(contrib_table)
+
+@app.command(name="explain", help="Explain a Git command, flag, concept, or error in plain English.")
+def explain_cmd(
+    query: str = typer.Argument(..., help="Git command, option, error, or concept to explain"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    from ace.ai.prompts.explain import EXPLAIN_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from rich.markdown import Markdown
+
+    # Resolve LLM
+    try:
+        llm = get_llm(offline_override=offline)
+    except LLMConfigurationError as e:
+        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+        raise typer.Exit(code=1)
+
+    usr_prompt = USER_PROMPT_TEMPLATE.format(query=query)
+    messages = [
+        SystemMessage(content=EXPLAIN_SYSTEM_PROMPT),
+        HumanMessage(content=usr_prompt)
+    ]
+
+    try:
+        with spinner(f"Explaining '{query}'..."):
+            response = llm.invoke(messages)
+        explanation = response.content.strip()
+        console.print()
+        console.print(Markdown(explanation))
+        console.print()
+    except Exception as e:
+        show_error_panel(f"Failed to generate explanation: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+@app.command(name="undo", help="Smart undo (figures out what to undo and resets safely).")
+def undo_cmd(
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    # Initialize GitOps
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    # 1. Fetch reflog (last 10 entries)
+    try:
+        reflog = git_ops.execute("reflog -10")
+    except Exception:
+        reflog = "No reflog available (empty repository)."
+
+    # 2. Fetch git state
+    from ace.core.context import RepoContext
+    context_builder = RepoContext(git_ops)
+    git_state_info = context_builder.check_merge_rebase_state()
+    git_state_desc = "Normal"
+    if git_state_info["in_progress"]:
+        git_state_desc = f"{git_state_info['type'].upper()} ({git_state_info['detail']})"
+
+    status = git_ops.get_status()
+    staged = ", ".join(status["staged"]) or "None"
+    unstaged = ", ".join(status["unstaged"]) or "None"
+
+    # 3. Call LLM to plan undo
+    from ace.ai.prompts.undo import UNDO_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from ace.utils.json_utils import extract_json
+
+    # Resolve LLM
+    try:
+        llm = get_llm(offline_override=offline)
+    except LLMConfigurationError as e:
+        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
+        raise typer.Exit(code=1)
+
+    usr_prompt = USER_PROMPT_TEMPLATE.format(
+        git_state=git_state_desc,
+        staged_files=staged,
+        unstaged_files=unstaged,
+        reflog_entries=reflog
+    )
+
+    messages = [
+        SystemMessage(content=UNDO_SYSTEM_PROMPT),
+        HumanMessage(content=usr_prompt)
+    ]
+
+    try:
+        with spinner("Analyzing state to plan undo..."):
+            response = llm.invoke(messages)
+        parsed = extract_json(response.content)
+    except Exception as e:
+        show_error_panel(f"Failed to plan undo: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    commands = parsed.get("commands", [])
+    explanation = parsed.get("explanation", "")
+
+    if not commands:
+        print_info("Nothing to undo or state is already clean.")
+        console.print(f"Explanation: {explanation}")
+        raise typer.Exit(code=0)
+
+    # Show the proposed undo plan
+    from ace.ui.display import show_plan
+    show_plan(commands, [explanation] + [""] * (len(commands) - 1))
+
+    # Safety checks
+    highest_risk = "safe"
+    risk_details = []
+    safer_alts = []
+    
+    for cmd in commands:
+        r_level, r_desc, alt = SafetyChecker.analyze_command(cmd)
+        if r_level == "destructive":
+            highest_risk = "destructive"
+            risk_details.append(f"[bold red]Command:[/bold] {cmd}\n[bold red]Risk:[/bold] {r_desc}")
+            if alt:
+                safer_alts.append(f"[bold green]Safer Alternative:[/bold] {alt}")
+        elif r_level == "moderate" and highest_risk != "destructive":
+            highest_risk = "moderate"
+
+    # Confirmation flow
+    if highest_risk == "destructive":
+        show_warning_panel(
+            "\n\n".join(risk_details) + ("\n\n" + "\n".join(safer_alts) if safer_alts else ""),
+            "⚠️ DESTRUCTIVE UNDO OPERATION DETECTED"
+        )
+        if not confirm("Are you sure you want to execute these destructive undo commands?", default=False):
+            print_info("Undo aborted.")
+            raise typer.Exit(code=0)
+    else:
+        # Ask confirmation for moderate/safe undo commands (defaults to Yes)
+        if not confirm("Do you want to execute this undo plan?", default=True):
+            print_info("Undo aborted.")
+            raise typer.Exit(code=0)
+
+    # Execute
+    for cmd in commands:
+        print_info(f"Executing: {cmd}")
+        if cmd.startswith("git "):
+            git_args = cmd[4:]
+        else:
+            git_args = cmd
+            
+        try:
+            res = git_ops.execute(git_args)
+            if res.strip():
+                console.print(res)
+        except Exception as e:
+            show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
+            raise typer.Exit(code=1)
+
+    print_success("Undo plan executed successfully!")
+
+if __name__ == "__main__":
+    app()

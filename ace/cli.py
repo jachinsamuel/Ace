@@ -238,6 +238,9 @@ def commit_cmd(
         None, "--format", "-f", help="Override commit format (conventional, simple, detailed)"
     ),
 ):
+    if not isinstance(format_override, str):
+        format_override = None
+
     # Initialize GitOps
     try:
         git_ops = GitOps()
@@ -479,6 +482,11 @@ def review_cmd(
     branch: Optional[str] = typer.Option(None, "--branch", "-b", help="Review all changes against a base branch/commit"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    if not isinstance(file, str):
+        file = None
+    if not isinstance(branch, str):
+        branch = None
+
     # Initialize GitOps
     try:
         git_ops = GitOps()

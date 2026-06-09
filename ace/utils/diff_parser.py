@@ -43,3 +43,52 @@ def split_diff_by_file(diff_text: str) -> Dict[str, str]:
         i += 2
         
     return file_diffs
+
+def trim_diff(diff_text: str, max_chars: int = 20000) -> str:
+    """
+    Trims a combined git diff text to a maximum character length.
+    Splits by file to avoid truncating in the middle of a file diff where possible.
+    """
+    if len(diff_text) <= max_chars:
+        return diff_text
+
+    file_diffs = split_diff_by_file(diff_text)
+    if not file_diffs:
+        return diff_text[:max_chars]
+
+    trimmed_chunks = []
+    current_size = 0
+    omitted_files = []
+
+    for filename, diff_content in file_diffs.items():
+        if current_size >= max_chars:
+            omitted_files.append(filename)
+            continue
+
+        if current_size + len(diff_content) <= max_chars:
+            trimmed_chunks.append(diff_content)
+            current_size += len(diff_content)
+        else:
+            # This file diff pushes it over the limit.
+            # Truncate lines of this specific file diff to fit the remaining space.
+            space_left = max_chars - current_size
+            if space_left > 100 or current_size == 0:
+                lines = diff_content.splitlines()
+                truncated_lines = []
+                temp_size = 0
+                for line in lines:
+                    if temp_size + len(line) + 1 > space_left and current_size + temp_size > 0:
+                        break
+                    truncated_lines.append(line)
+                    temp_size += len(line) + 1
+                truncated_lines.append("... (file diff truncated due to size) ...")
+                trimmed_chunks.append("\n".join(truncated_lines))
+                current_size += temp_size + len("... (file diff truncated due to size) ...") + 1
+            else:
+                omitted_files.append(filename)
+
+    res = "\n".join(trimmed_chunks)
+    if omitted_files:
+        res += f"\n\n... (diff truncated, {len(omitted_files)} more file(s) omitted: {', '.join(omitted_files[:3])}{' and others' if len(omitted_files) > 3 else ''}) ..."
+    return res
+

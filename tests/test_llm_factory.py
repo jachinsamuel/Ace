@@ -1,0 +1,51 @@
+import json
+from unittest.mock import MagicMock, patch
+from ace.ai.llm_factory import ensure_ollama_model, _checked_ollama_models
+
+def test_ensure_ollama_model_cached():
+    # Setup cache key
+    _checked_ollama_models.add(("http://localhost:11434", "test-model"))
+    
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        ensure_ollama_model("http://localhost:11434", "test-model")
+        mock_urlopen.assert_not_called()
+
+@patch("urllib.request.urlopen")
+def test_ensure_ollama_model_exists(mock_urlopen):
+    # Reset cache
+    _checked_ollama_models.clear()
+    
+    # Mock tags response
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps({
+        "models": [{"name": "llama3:latest"}]
+    }).encode("utf-8")
+    mock_urlopen.return_value.__enter__.return_value = mock_resp
+    
+    ensure_ollama_model("http://localhost:11434", "llama3")
+    assert ("http://localhost:11434", "llama3") in _checked_ollama_models
+
+@patch("urllib.request.urlopen")
+@patch("ace.ui.prompts.confirm", return_value=True)
+def test_ensure_ollama_model_pull(mock_confirm, mock_urlopen):
+    _checked_ollama_models.clear()
+    
+    # Mock tags response (not exists) and then pull response
+    mock_tags_resp = MagicMock()
+    mock_tags_resp.read.return_value = json.dumps({
+        "models": [{"name": "other-model:latest"}]
+    }).encode("utf-8")
+    
+    mock_pull_resp = MagicMock()
+    mock_pull_resp.read.return_value = json.dumps({
+        "status": "success"
+    }).encode("utf-8")
+    
+    # urlopen will be called twice: first for tags, second for pull
+    mock_urlopen.return_value.__enter__.side_effect = [mock_tags_resp, mock_pull_resp]
+    
+    ensure_ollama_model("http://localhost:11434", "llama3")
+    
+    # Check both calls
+    assert mock_urlopen.call_count == 2
+    assert mock_confirm.called

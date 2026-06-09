@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Tuple
 from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
-from ace.utils.diff_parser import split_diff_by_file
+from ace.utils.diff_parser import split_diff_by_file, trim_diff
 from ace.ai.llm_factory import get_llm
 from ace.ai.prompts.review import REVIEW_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from ace.utils.json_utils import extract_json
@@ -39,7 +39,7 @@ class CodeReviewer:
 
             user_prompt = USER_PROMPT_TEMPLATE.format(
                 filename=filename,
-                diff_content=diff_content[:15000]  # Cap file diff size
+                diff_content=trim_diff(diff_content, max_chars=15000)  # Cap file diff size
             )
 
             messages = [

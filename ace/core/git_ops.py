@@ -186,3 +186,8 @@ class GitOps:
             return {"ahead": ahead, "behind": behind}
         except git.GitCommandError:
             return {"ahead": 0, "behind": 0}
+
+    def get_remotes(self) -> List[str]:
+        """List all configured remote names."""
+        return [r.name for r in self.repo.remotes]
+

@@ -50,3 +50,14 @@ def test_git_ops_basic_operations(temp_git_repo):
     assert len(log) == 1
     assert log[0]["summary"] == "initial commit"
     assert log[0]["author"] == "Test User"
+
+def test_git_ops_get_remotes(temp_git_repo):
+    """Test remote list querying."""
+    repo_path, repo = temp_git_repo
+    git_ops = GitOps(repo_path=str(repo_path))
+    assert git_ops.get_remotes() == []
+
+    # Add a remote and check again
+    repo.create_remote("origin", "https://github.com/example/repo.git")
+    assert git_ops.get_remotes() == ["origin"]
+

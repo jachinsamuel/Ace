@@ -2,6 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
 from ace.core.context import RepoContext
 from ace.ai.llm_factory import get_llm
+from ace.utils.diff_parser import trim_diff
 from ace.ai.prompts.commit import (
     CONVENTIONAL_COMMIT_SYSTEM_PROMPT,
     SIMPLE_COMMIT_SYSTEM_PROMPT,
@@ -47,7 +48,7 @@ class CommitGenerator:
 
         user_prompt = USER_PROMPT_TEMPLATE.format(
             repo_context=repo_context,
-            staged_diff=staged_diff[:25000]  # Cap diff to avoid context window limit
+            staged_diff=trim_diff(staged_diff, max_chars=25000)  # Cap diff to avoid context window limit
         )
 
         messages = [

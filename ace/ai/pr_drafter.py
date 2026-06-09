@@ -2,6 +2,7 @@ from typing import Dict, Any
 from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
 from ace.ai.llm_factory import get_llm
+from ace.utils.diff_parser import trim_diff
 from ace.ai.prompts.pr import PR_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from ace.utils.json_utils import extract_json
 
@@ -36,9 +37,8 @@ class PRDrafter:
 
         llm = get_llm(offline_override=offline)
         
-        # Limit diff text size to prevent exceeding LLM context window (approx 25k chars)
-        if len(diff_text) > 25000:
-            diff_text = diff_text[:25000] + "\n\n... (diff truncated due to size) ..."
+        # Limit diff text size using smart trimming (approx 25k chars)
+        diff_text = trim_diff(diff_text, max_chars=25000)
 
         usr_prompt = USER_PROMPT_TEMPLATE.format(
             current_branch=current_branch,

@@ -335,17 +335,39 @@ def commit_cmd(
         # Detached HEAD, don't ask to push
         return
 
+    remotes = git_ops.get_remotes()
+    if not remotes:
+        print_info("No remotes configured. Skipping push.")
+        return
+
     # Check ahead/behind if tracking remote exists
     ab = git_ops.get_ahead_behind()
     ahead = ab.get("ahead", 0)
     
     # If we just committed, we are at least 1 commit ahead (or more if local commits were unpushed)
     if not upstream:
-        # Prompt to set upstream
-        if confirm(f"No upstream remote branch set for '{current_branch}'. Push and set upstream to 'origin/{current_branch}'?", default=True):
+        # Resolve remote to use
+        selected_remote = remotes[0]
+        if len(remotes) > 1:
+            default_rem = "origin" if "origin" in remotes else remotes[0]
+            console.print("\n[bold]Select remote to push to:[/bold]")
+            for idx, rem in enumerate(remotes, 1):
+                console.print(f"  [{idx}] {rem}")
+            choice_idx = typer.prompt("Choose option", default="1")
             try:
-                with spinner(f"Pushing '{current_branch}' to origin and setting upstream..."):
-                    push_res = git_ops.push(remote="origin", branch=current_branch, set_upstream=True)
+                choice_num = int(choice_idx) - 1
+                if 0 <= choice_num < len(remotes):
+                    selected_remote = remotes[choice_num]
+                else:
+                    selected_remote = default_rem
+            except ValueError:
+                selected_remote = default_rem
+
+        # Prompt to set upstream
+        if confirm(f"No upstream remote branch set for '{current_branch}'. Push and set upstream to '{selected_remote}/{current_branch}'?", default=True):
+            try:
+                with spinner(f"Pushing '{current_branch}' to {selected_remote} and setting upstream..."):
+                    push_res = git_ops.push(remote=selected_remote, branch=current_branch, set_upstream=True)
                 print_success("Pushed and set upstream branch successfully!")
                 console.print(f"[dim]{push_res}[/dim]")
             except Exception as e:
@@ -355,8 +377,10 @@ def commit_cmd(
         msg_push = f"Push to upstream branch '{upstream}'? (Your branch is {ahead} commit(s) ahead of remote)"
         if confirm(msg_push, default=True):
             try:
+                # Find the remote name from upstream (e.g. 'origin/main' -> 'origin')
+                remote_name = upstream.split("/")[0] if "/" in upstream else "origin"
                 with spinner(f"Pushing to {upstream}..."):
-                    push_res = git_ops.push()
+                    push_res = git_ops.push(remote=remote_name)
                 print_success("Pushed to remote successfully!")
                 console.print(f"[dim]{push_res}[/dim]")
             except Exception as e:

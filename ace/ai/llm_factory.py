@@ -1,10 +1,69 @@
 import os
+import json
+import urllib.request
+import urllib.error
 from langchain_core.language_models import BaseChatModel
 from ace.core.config import get_config
 
 class LLMConfigurationError(Exception):
     """Raised when there is a configuration error with the AI provider."""
     pass
+
+_checked_ollama_models = set()
+
+def ensure_ollama_model(base_url: str, model_name: str) -> None:
+    """Checks if the configured model is available locally in Ollama; if not, pulls it."""
+    cache_key = (base_url, model_name)
+    if cache_key in _checked_ollama_models:
+        return
+
+    _checked_ollama_models.add(cache_key)
+
+    # 1. Fetch local models list from /api/tags
+    try:
+        url = f"{base_url.rstrip('/')}/api/tags"
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            local_models = [m["name"] for m in data.get("models", [])]
+            
+            norm_model = model_name
+            if ":" not in norm_model:
+                norm_model = f"{norm_model}:latest"
+            
+            model_exists = False
+            for m in local_models:
+                if m == model_name or m == norm_model or m.split(":")[0] == model_name.split(":")[0]:
+                    model_exists = True
+                    break
+                    
+            if model_exists:
+                return
+    except Exception:
+        return
+
+    # 2. Prompt user and pull model
+    from ace.ui.display import console, spinner
+    from ace.ui.prompts import confirm
+    
+    console.print(f"\n[warning]⚠️  Ollama model [bold]{model_name}[/bold] is not downloaded locally.[/warning]")
+    if confirm(f"Would you like Ace to automatically pull '{model_name}' from the Ollama registry?", default=True):
+        try:
+            url = f"{base_url.rstrip('/')}/api/pull"
+            payload = json.dumps({"name": model_name, "stream": False}).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, method="POST")
+            req.add_header("Content-Type", "application/json")
+            
+            with spinner(f"Downloading model '{model_name}' (this may take a few minutes)..."):
+                with urllib.request.urlopen(req) as response:
+                    res_data = json.loads(response.read().decode("utf-8"))
+                    if res_data.get("status") == "success" or "success" in str(res_data):
+                        console.print(f"[success]✅ Successfully downloaded '{model_name}'![/success]\n")
+                    else:
+                        console.print(f"[info]Ollama response: {res_data}[/info]\n")
+        except Exception as e:
+            console.print(f"[error]❌ Failed to pull model: {e}[/error]")
+            console.print(f"[info]Please run 'ollama pull {model_name}' manually in your shell.[/info]\n")
 
 def get_llm(offline_override: bool = False) -> BaseChatModel:
     """
@@ -37,6 +96,13 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
     elif provider == "ollama":
         from langchain_ollama import ChatOllama
         base_url = config.ai.ollama_url or "http://localhost:11434"
+        
+        # Pull model if not available
+        try:
+            ensure_ollama_model(base_url, config.ai.ollama_model)
+        except Exception:
+            pass
+            
         return ChatOllama(
             model=config.ai.ollama_model,
             base_url=base_url,

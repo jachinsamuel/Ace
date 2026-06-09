@@ -22,6 +22,8 @@ class SafetyChecker:
         cmd = command.strip()
         if cmd.startswith("git "):
             cmd = cmd[4:]
+        elif cmd.startswith("ace "):
+            cmd = cmd[4:]
             
         parts = cmd.split()
         if not parts:
@@ -85,9 +87,12 @@ class SafetyChecker:
             return "safe", "Read-only branch listing.", None
             
         # Moderate risk actions: writing/modifying local files/history
-        moderate_commands = ["commit", "push", "merge", "checkout", "rebase", "cherry-pick", "reset", "revert"]
+        moderate_commands = ["add", "stage", "rm", "commit", "push", "merge", "checkout", "rebase", "cherry-pick", "reset", "revert", "resolve", "ignore"]
         if subcommand in moderate_commands:
             explanations = {
+                "add": "Stages files in the repository index.",
+                "stage": "Stages files in the repository index.",
+                "rm": "Removes files from the repository.",
                 "commit": "Creates a new commit with your staged changes.",
                 "push": "Uploads your local commits to the remote repository.",
                 "merge": "Merges changes from another branch into your current branch. May cause conflicts.",
@@ -95,7 +100,9 @@ class SafetyChecker:
                 "rebase": "Reapplies commits on top of another base tip. Rewrites history locally.",
                 "cherry-pick": "Applies the changes introduced by some existing commits.",
                 "reset": "Resets current HEAD to the specified state.",
-                "revert": "Creates a new commit that reverts the effects of earlier commits."
+                "revert": "Creates a new commit that reverts the effects of earlier commits.",
+                "resolve": "Launches interactive merge conflict resolution.",
+                "ignore": "Appends rule patterns to your .gitignore file."
             }
             return "moderate", explanations.get(subcommand, "Modifies git state or files."), None
             

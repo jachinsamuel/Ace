@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from ace.core.git_ops import GitOps, NotAGitRepositoryError
 import pytest
 

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
-from ace.ai.code_reviewer import CodeReviewer, CodeReviewerError
+from ace.ai.code_reviewer import CodeReviewer
 from ace.core.git_ops import GitOps
-import pytest
 
 def test_code_reviewer_empty_diff(temp_git_repo):
     repo_path, repo = temp_git_repo

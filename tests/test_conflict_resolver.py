@@ -1,8 +1,7 @@
 from unittest.mock import MagicMock, patch
 from ace.utils.conflict_parser import parse_conflict_file
-from ace.ai.conflict_resolver import ConflictResolver, ConflictResolverError
+from ace.ai.conflict_resolver import ConflictResolver
 from ace.core.git_ops import GitOps
-import pytest
 
 def test_parse_conflict_file():
     content = """

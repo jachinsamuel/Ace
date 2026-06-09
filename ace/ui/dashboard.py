@@ -11,19 +11,20 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
     Renders an interactive terminal dashboard displaying repository state,
     workspace changes, and a menu to quickly run Ace operations.
     """
+    from ace.ui.banner import animate_fire_banner, get_fire_banner_static
+    
+    # Play fire animation once on initial startup
+    click.clear()
+    try:
+        animate_fire_banner(duration_seconds=1.2)
+    except Exception:
+        pass  # Fallback if animation fails
+        
     while True:
         click.clear()
         
         # 1. Header
-        banner = """
-[bold orange3] █████╗   ██████╗ ███████╗[/bold orange3]
-[bold orange3]██╔══██╗ ██╔════╝ ██╔════╝[/bold orange3]
-[bold orange3]███████║ ██║      █████╗  [/bold orange3]
-[bold orange3]██╔══██║ ██║      ██╔══╝  [/bold orange3]
-[bold orange3]██║  ██║ ╚██████╗ ███████╗[/bold orange3]
-[bold orange3]╚═╝  ╚═╝  ╚═════╝ ╚══════╝[/bold orange3]
-"""
-        console.print(banner)
+        console.print(get_fire_banner_static())
         console.print("[bold orange3]🚀 Ace AI Git Copilot Interactive Dashboard[/bold orange3]\n")
 
         

@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 import pytest
-import os
 from ace.ai.gitignore_generator import GitignoreGenerator
 from ace.core.git_ops import GitOps
 

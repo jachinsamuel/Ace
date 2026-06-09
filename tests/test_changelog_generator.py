@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
-from ace.ai.changelog_generator import ChangelogGenerator, ChangelogGeneratorError
+from ace.ai.changelog_generator import ChangelogGenerator
 from ace.core.git_ops import GitOps
-import pytest
 
 def test_changelog_generator_empty_log(temp_git_repo):
     repo_path, repo = temp_git_repo

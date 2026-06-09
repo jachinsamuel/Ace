@@ -1,6 +1,6 @@
 import sys
+import os
 from typing import Optional, List
-import click
 import typer
 
 try:
@@ -364,15 +364,15 @@ def commit_cmd(
 
 @app.command(name="setup", help="Initial configuration wizard for Ace.")
 def setup_cmd():
-    banner = """
-[bold orange3] █████╗   ██████╗ ███████╗[/bold orange3]
-[bold orange3]██╔══██╗ ██╔════╝ ██╔════╝[/bold orange3]
-[bold orange3]███████║ ██║      █████╗  [/bold orange3]
-[bold orange3]██╔══██║ ██║      ██╔══╝  [/bold orange3]
-[bold orange3]██║  ██║ ╚██████╗ ███████╗[/bold orange3]
-[bold orange3]╚═╝  ╚═╝  ╚═════╝ ╚══════╝[/bold orange3]
-"""
-    console.print(banner)
+    import click
+    from ace.ui.banner import animate_fire_banner
+    
+    click.clear()
+    try:
+        animate_fire_banner(duration_seconds=1.2)
+    except Exception:
+        pass
+        
     console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup![/bold orange3] 🚀\n")
     
     config = get_config()
@@ -1063,6 +1063,66 @@ def ignore_cmd(
             raise typer.Exit(code=1)
     else:
         print_info("Cancelled. No changes made.")
+
+@app.command(name="help", help="Show user guide and help information on how to use Ace.")
+def help_cmd():
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.text import Text
+    from ace.ui.banner import get_fire_banner_static
+    
+    # 1. Header with static gradient banner
+    console.print(get_fire_banner_static())
+    
+    # Intro
+    console.print("[bold orange3]Ace AI Git Copilot — Help & User Guide[/bold orange3] 🚀")
+    console.print("Ace is your AI-powered companion for Git. You can control Git either by running specific commands or by talking to Git in plain English!\n")
+    
+    # 2. Natural Language Usage Section
+    nl_text = Text.from_markup(
+        "[bold white]How to talk to Ace in Plain English:[/bold white]\n"
+        "Simply type your request as a quoted string after [bold cyan]ace[/bold cyan]. For example:\n"
+        "  [bold green]ace \"add all python files and commit\"[/bold green]\n"
+        "  [bold green]ace \"show me commits from yesterday\"[/bold green]\n"
+        "  [bold green]ace \"undo last commit but keep my changes staged\"[/bold green]\n\n"
+        "Ace will analyze your request and repository state, formulate a command plan, explain what it will do, assess safety risks, and execute it upon your confirmation."
+    )
+    console.print(Panel(nl_text, title="🗣️  Natural Language Interface", border_style="orange3", expand=False))
+    console.print()
+    
+    # 3. Core Commands Table
+    table = Table(title="Core Ace Commands", show_header=True, header_style="bold orange3")
+    table.add_column("Command", style="cyan bold")
+    table.add_column("Description", style="white")
+    table.add_column("Usage Example", style="dim italic")
+    
+    table.add_row("setup", "Run the configuration wizard to set up AI provider credentials", "ace setup")
+    table.add_row("config", "View active configuration values and API settings", "ace config")
+    table.add_row("dash", "Open the interactive terminal dashboard for repository management", "ace dash")
+    table.add_row("commit", "Analyze staged changes and generate a high-quality smart commit", "ace commit")
+    table.add_row("review", "Perform AI-powered code review of staged, unstaged, or branch changes", "ace review --all")
+    table.add_row("resolve", "AI-assisted interactive merge conflict resolution", "ace resolve")
+    table.add_row("stats", "Display contribution stats, file distributions, and activity graph", "ace stats")
+    table.add_row("changelog", "Generate a markdown changelog between commits or tags", "ace changelog --from v1.0.0")
+    table.add_row("explain", "Explain a Git command, concept, flag, or error in plain English", "ace explain \"git rebase --onto\"")
+    table.add_row("undo", "Smart undo that analyzes state and safely reverts the last action", "ace undo")
+    table.add_row("pr", "Draft a detailed pull request description from branch differences", "ace pr -b main")
+    table.add_row("search", "Perform a semantic commit search of recent commit history", "ace search \"auth fix\"")
+    table.add_row("ignore", "Generate gitignore rules and append them to .gitignore", "ace ignore \"temp log files\"")
+    table.add_row("add / stage", "Stage files in the repository index to prepare for committing", "ace add .")
+    
+    console.print(table)
+    console.print()
+    
+    # 4. Global options and tips
+    tips_text = Text.from_markup(
+        "💡 [bold orange3]Tips & Tricks:[/bold orange3]\n"
+        "• [bold]Dry Run[/bold]: Use [bold cyan]--dry-run[/bold cyan] or [bold cyan]-d[/bold cyan] with natural language queries to see the plan without executing.\n"
+        "• [bold]Auto-Yes[/bold]: Use [bold cyan]--yes[/bold cyan] or [bold cyan]-y[/bold cyan] to automatically skip execution confirmations (except destructive operations).\n"
+        "• [bold]Offline Mode[/bold]: Use [bold cyan]--offline[/bold cyan] to force Ace to run fallback local queries using Ollama.\n"
+        "• [bold]Safety First[/bold]: Ace automatically flags destructive actions (like [red]git reset --hard[/red] or force-pushes) and demands manual approval."
+    )
+    console.print(Panel(tips_text, border_style="dim", expand=False))
 
 @app.command(name="add", help="Stage files (git add) to prepare for commit.")
 def add_cmd(

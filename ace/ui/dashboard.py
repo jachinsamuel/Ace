@@ -99,17 +99,30 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         else:
             console.print("[dim]No commit history yet.[/dim]")
             
+        menu_table = Table(show_header=False, box=None, padding=(0, 2))
+        menu_table.add_column(style="bold cyan", justify="right")
+        menu_table.add_column(style="white")
+        menu_table.add_column(style="bold cyan", justify="right")
+        menu_table.add_column(style="white")
+        
+        menu_table.add_row("\[c]", "AI Commit", "\[r]", "AI Code Review")
+        menu_table.add_row("\[u]", "AI Smart Undo", "\[p]", "Plan Git Command (AI)")
+        menu_table.add_row("\[s]", "Repo Stats", "\[q]", "Quit Dashboard")
+        
+        console.print(Panel(menu_table, title="[bold white]Available Actions[/bold white]", border_style="orange3", expand=False))
         console.print()
         
-        # 6. Options Menu
-        console.print("[bold]Available Actions:[/bold]")
-        console.print("  [bold cyan]c[/bold cyan] : AI Commit              [bold cyan]r[/bold cyan] : AI Code Review")
-        console.print("  [bold cyan]u[/bold cyan] : AI Smart Undo         [bold cyan]p[/bold cyan] : Plan Git command (AI)")
-        console.print("  [bold cyan]s[/bold cyan] : Repo Stats            [bold cyan]q[/bold cyan] : Quit Dashboard")
+        # Get user input using instant single keypress
+        console.print("[bold orange3]Press a key to select action...[/bold orange3] ", end="")
+        while True:
+            choice = click.getchar().lower().strip()
+            if choice == "\r" or choice == "\n" or not choice:
+                choice = "q"
+                break
+            if choice in ("c", "r", "u", "p", "s", "q"):
+                break
+        console.print(choice)
         console.print()
-        
-        # Get user input
-        choice = typer.prompt("Select action", default="q").lower().strip()
         
         if choice == "q":
             console.print("[yellow]Exiting dashboard.[/yellow]")
@@ -121,7 +134,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 commit_cmd(offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running commit: {e}[/red]")
-            input("Press Enter to return to dashboard...")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()
         elif choice == "r":
             # Run review command from cli
             from ace.cli import review_cmd
@@ -129,7 +143,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 review_cmd(all_changes=True, offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running code review: {e}[/red]")
-            input("Press Enter to return to dashboard...")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()
         elif choice == "u":
             # Run undo command from cli
             from ace.cli import undo_cmd
@@ -137,7 +152,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 undo_cmd(offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running undo: {e}[/red]")
-            input("Press Enter to return to dashboard...")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()
         elif choice == "s":
             # Run stats command from cli
             from ace.cli import stats_cmd
@@ -145,7 +161,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 stats_cmd()
             except Exception as e:
                 console.print(f"[red]Error running stats: {e}[/red]")
-            input("Press Enter to return to dashboard...")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()
         elif choice == "p":
             query = typer.prompt("What do you want to do with Git? (e.g. 'undo my last commit')")
             if query.strip():
@@ -197,4 +214,5 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                             console.print("[yellow]Plan aborted.[/yellow]")
                 except Exception as e:
                     console.print(f"[red]Error planning commands: {e}[/red]")
-            input("Press Enter to return to dashboard...")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()

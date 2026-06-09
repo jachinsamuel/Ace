@@ -11,6 +11,7 @@ except AttributeError:
 
 from rich.table import Table
 from rich.panel import Panel
+from rich import box
 from ace import __version__
 from ace.core.config import get_config, save_config, DEFAULT_CONFIG_PATH
 from ace.core.git_ops import GitOps, NotAGitRepositoryError
@@ -714,23 +715,29 @@ def stats_cmd():
         show_warning_panel("No commit history found to generate statistics.", "Empty Repository")
         raise typer.Exit(code=0)
 
-    # 1. Overview Table
-    overview = Table(title="Repository Overview", show_header=True, header_style="bold orange3")
-    overview.add_column("Metric")
-    overview.add_column("Value")
-    
-    overview.add_row("Total Commits", str(stats["total_commits"]))
-    overview.add_row("Active Branches", str(stats["total_branches"]))
-    overview.add_row("Staged Files", str(stats["staged_count"]))
-    overview.add_row("Unstaged Files", str(stats["unstaged_count"]))
-    overview.add_row("Untracked Files", str(stats["untracked_count"]))
-    
-    console.print(overview)
+    # 1. Overview Panels
+    info_table = Table.grid(padding=1)
+    info_table.add_column(style="bold cyan", justify="right")
+    info_table.add_column()
+    info_table.add_row("Total Commits:", f"[bold white]{stats['total_commits']}[/bold white]")
+    info_table.add_row("Active Branches:", f"[bold white]{stats['total_branches']}[/bold white]")
+    info_panel = Panel(info_table, title="[bold white]Repository Info[/bold white]", border_style="cyan", expand=False)
+
+    changes_table = Table.grid(padding=1)
+    changes_table.add_column(style="bold yellow", justify="right")
+    changes_table.add_column()
+    changes_table.add_row("Staged:", f"[bold green]{stats['staged_count']} files[/bold green]")
+    changes_table.add_row("Unstaged:", f"[bold yellow]{stats['unstaged_count']} files[/bold yellow]")
+    changes_table.add_row("Untracked:", f"[bold red]{stats['untracked_count']} files[/bold red]")
+    changes_panel = Panel(changes_table, title="[bold white]Workspace Changes[/bold white]", border_style="yellow", expand=False)
+
+    from rich.columns import Columns
+    console.print(Columns([info_panel, changes_panel]))
     console.print()
 
     # 2. Contributors Table (Enhanced with Line changes)
-    contrib_table = Table(title="Top Contributors", show_header=True, header_style="bold green")
-    contrib_table.add_column("Author")
+    contrib_table = Table(title="Top Contributors", show_header=True, header_style="bold spring_green3", box=box.ROUNDED)
+    contrib_table.add_column("Author", style="bold white")
     contrib_table.add_column("Commits", justify="right")
     contrib_table.add_column("Lines Added/Deleted", justify="center")
     contrib_table.add_column("Activity Bar", justify="left")
@@ -741,10 +748,14 @@ def stats_cmd():
     for author, count in stats["contributors"][:10]: # Top 10
         pct = (count / total_commits) * 100
         bar_len = int(pct / 5) # 20 blocks max
-        bar = "█" * bar_len + "░" * (20 - bar_len)
+        
+        # Color bar based on activity levels
+        color = "spring_green3" if pct >= 50 else ("orange3" if pct >= 20 else "deep_sky_blue1")
+        bar = f"[{color}]" + "█" * bar_len + f"[/{color}][grey37]" + "░" * (20 - bar_len) + "[/grey37]"
+        
         la = lines_info.get(author, {"added": 0, "deleted": 0})
         lines_str = f"[green]+{la['added']}[/green]/[red]-{la['deleted']}[/red]"
-        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, f"[orange3]{bar}[/orange3]")
+        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, bar)
 
     console.print(contrib_table)
     console.print()
@@ -752,8 +763,8 @@ def stats_cmd():
     # 3. File Extension Distribution Table
     ext_info = stats.get("extension_counts", {})
     if ext_info:
-        ext_table = Table(title="File Extension Distribution (Top 5)", show_header=True, header_style="bold yellow")
-        ext_table.add_column("Extension")
+        ext_table = Table(title="File Extension Distribution (Top 5)", show_header=True, header_style="bold gold1", box=box.ROUNDED)
+        ext_table.add_column("Extension", style="bold white")
         ext_table.add_column("Files Count", justify="right")
         ext_table.add_column("Percentage Bar")
         
@@ -761,8 +772,8 @@ def stats_cmd():
         for ext, count in ext_info.items():
             pct = (count / total_files) * 100 if total_files else 0
             bar_len = int(pct / 5) # 20 blocks max
-            bar = "█" * bar_len + "░" * (20 - bar_len)
-            ext_table.add_row(ext, str(count), f"[yellow]{bar}[/yellow]")
+            bar = "[gold1]" + "█" * bar_len + "[/gold1][grey37]" + "░" * (20 - bar_len) + "[/grey37]"
+            ext_table.add_row(ext, str(count), bar)
             
         console.print(ext_table)
         console.print()
@@ -771,15 +782,20 @@ def stats_cmd():
     timeline = stats.get("timeline", [])
     if timeline:
         max_commits_day = max([item[1] for item in timeline]) or 1
-        timeline_table = Table(title="Commit Activity (Last 14 Days)", show_header=True, header_style="bold blue")
-        timeline_table.add_column("Date")
+        timeline_table = Table(title="Commit Activity (Last 14 Days)", show_header=True, header_style="bold medium_purple1", box=box.ROUNDED)
+        timeline_table.add_column("Date", style="bold white")
         timeline_table.add_column("Commits", justify="right")
         timeline_table.add_column("Activity Graph")
         
         for date_str, count in timeline:
-            bar_len = int((count / max_commits_day) * 20) if count else 0
-            bar = "█" * bar_len
-            timeline_table.add_row(date_str, str(count), f"[blue]{bar}[/blue]")
+            if count > 0:
+                bar_len = int((count / max_commits_day) * 20)
+                bar_len = max(1, bar_len)
+                bar = "[medium_purple1]" + "█" * bar_len + "[/medium_purple1]"
+            else:
+                bar = "[grey37]·[/grey37]"
+                
+            timeline_table.add_row(date_str, str(count), bar)
             
         console.print(timeline_table)
         console.print()

@@ -121,7 +121,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 commit_cmd(offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running commit: {e}[/red]")
-            typer.prompt("Press Enter to return to dashboard...")
+            input("Press Enter to return to dashboard...")
         elif choice == "r":
             # Run review command from cli
             from ace.cli import review_cmd
@@ -129,7 +129,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 review_cmd(all_changes=True, offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running code review: {e}[/red]")
-            typer.prompt("Press Enter to return to dashboard...")
+            input("Press Enter to return to dashboard...")
         elif choice == "u":
             # Run undo command from cli
             from ace.cli import undo_cmd
@@ -137,7 +137,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 undo_cmd(offline=offline)
             except Exception as e:
                 console.print(f"[red]Error running undo: {e}[/red]")
-            typer.prompt("Press Enter to return to dashboard...")
+            input("Press Enter to return to dashboard...")
         elif choice == "s":
             # Run stats command from cli
             from ace.cli import stats_cmd
@@ -145,7 +145,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 stats_cmd()
             except Exception as e:
                 console.print(f"[red]Error running stats: {e}[/red]")
-            typer.prompt("Press Enter to return to dashboard...")
+            input("Press Enter to return to dashboard...")
         elif choice == "p":
             query = typer.prompt("What do you want to do with Git? (e.g. 'undo my last commit')")
             if query.strip():
@@ -197,4 +197,4 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                             console.print("[yellow]Plan aborted.[/yellow]")
                 except Exception as e:
                     console.print(f"[red]Error planning commands: {e}[/red]")
-            typer.prompt("Press Enter to return to dashboard...")
+            input("Press Enter to return to dashboard...")

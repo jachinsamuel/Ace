@@ -76,14 +76,14 @@ class HistoryAnalyzer:
 
         # Lines of code changes per author
         try:
-            numstat_data = self.git_ops.execute('log --numstat --format="AUTHOR:%an"')
+            numstat_data = self.git_ops.execute('log --numstat --format=AUTHOR:%an')
         except Exception:
             numstat_data = ""
         
         author_lines = {}
         current_author = None
         for line in numstat_data.splitlines():
-            line = line.strip()
+            line = line.strip().replace('"', '')
             if not line:
                 continue
             if line.startswith("AUTHOR:"):

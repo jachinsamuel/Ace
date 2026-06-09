@@ -109,6 +109,7 @@ def main(
     parser = IntentParser(git_ops)
 
     try:
+        get_llm(offline_override=offline)
         with spinner("Planning Git commands..."):
             parsed = parser.parse_intent(query, offline=offline)
     except LLMConfigurationError as e:
@@ -258,6 +259,7 @@ def commit_cmd(
     while True:
         if not msg:
             try:
+                get_llm(offline_override=offline)
                 with spinner("Analyzing changes and generating commit message..."):
                     msg = generator.generate_message(format_type=format_type, offline=offline)
             except NoStagedChangesError as e:
@@ -535,6 +537,7 @@ def review_cmd(
     reviewer = CodeReviewer(git_ops)
     
     try:
+        get_llm(offline_override=offline)
         with spinner(f"Analyzing {desc} and reviewing code..."):
             findings, score = reviewer.review_diff(diff_text, offline=offline)
     except LLMConfigurationError as e:
@@ -573,6 +576,7 @@ def resolve_cmd(
         console.print(f"\n[bold orange3]Resolving conflicts in: {file_path}[/bold orange3]")
         
         try:
+            get_llm(offline_override=offline)
             with spinner(f"Analyzing conflicts in {file_path}..."):
                 suggestions = resolver.get_suggestions(file_path, offline=offline)
         except Exception as e:
@@ -666,6 +670,7 @@ def changelog_cmd(
     generator = ChangelogGenerator(git_ops)
 
     try:
+        get_llm(offline_override=offline)
         with spinner("Analyzing commits and generating changelog..."):
             changelog_md = generator.generate_changelog(from_ref, to_ref, offline=offline)
     except LLMConfigurationError as e:
@@ -1020,6 +1025,7 @@ def search_cmd(
     analyzer = HistoryAnalyzer(git_ops)
 
     try:
+        get_llm(offline_override=offline)
         with spinner(f"Semantically searching last {limit} commits for '{query}'..."):
             results = analyzer.semantic_search(query, limit=limit, offline=offline)
     except Exception as e:
@@ -1058,6 +1064,7 @@ def ignore_cmd(
     generator = GitignoreGenerator(git_ops)
 
     try:
+        get_llm(offline_override=offline)
         with spinner(f"Generating .gitignore rules for '{query}'..."):
             res = generator.generate_rules(query, offline=offline)
     except Exception as e:

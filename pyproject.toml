@@ -1,6 +1,6 @@
 [project]
 name = "ace-git-copilot"
-version = "0.1.4"
+version = "0.1.5"
 description = "AI-powered Git copilot — talk to Git in plain English"
 readme = "README.md"
 requires-python = ">=3.11"

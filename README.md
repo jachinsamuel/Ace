@@ -1,4 +1,4 @@
-# ♠️ Ace — AI-Powered Git Copilot
+# Ace — AI-Powered Git Copilot
 
 ```text
  █████╗   ██████╗ ███████╗
@@ -9,33 +9,37 @@
 ╚═╝  ╚═╝  ╚═════╝ ╚══════╝
 ```
 
-[![PyPI Version](https://img.shields.io/pypi/v/ace-git-copilot?color=blue)](https://pypi.org/project/ace-git-copilot/)
-[![Python Version](https://img.shields.io/pypi/pyversions/ace-git-copilot)](https://pypi.org/project/ace-git-copilot/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI Version](https://img.shields.io/pypi/v/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
+[![Python Version](https://img.shields.io/pypi/pyversions/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
+[![License: MIT](https://img.shields.io/github/license/jachinsamuel/Ace.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Stars](https://img.shields.io/github/stars/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/issues)
 
-**Ace** is an intelligent command-line tool that brings AI assistance directly to your Git workflow. Talk to Git in plain English — Ace translates your intents into Git commands, explains what it is doing, and runs them safely. It also features a fully interactive terminal user interface (TUI) dashboard to help manage your repositories with ease.
-
----
-
-## ✨ Features
-
-*   **🧠 Natural Language Git Commands**: Translate commands like `"undo my last commit but keep changes"` or `"create a branch login-page"` into clean, standard Git actions.
-*   **📝 AI-Powered Commits**: Analyzes staged diffs and generates Conventional Commit messages automatically.
-*   **🔍 Automated Code Review**: Rates code quality and points out bugs, security flaws, or styling issues inside staged or unstaged diffs.
-*   **⚔️ Merge Conflict Resolution**: Interactively walks you through conflict blocks and suggests correct merges.
-*   **📊 Rich Repo Stats & Changelogs**: Instantly computes repository statistics (commits, additions, deletions, file counts) and generates markdown release notes since the last tag.
-*   **🔎 Semantic Commit Search**: Search commits by natural language queries (e.g. `"fixed the authorization bug"`) instead of matching literal strings.
-*   **🔥 Interactive TUI Dashboard**: Run `ace dash` to launch a beautiful terminal interface showing current status, branch info, commit charts, and interactive menus.
-*   **🛡️ Safety First**: Classifies actions into safe, moderate, or destructive levels, and requests confirmation before running destructive operations.
+Ace is an intelligent command-line tool that brings AI assistance directly to your Git workflow. Talk to Git in plain English — Ace translates your intents into Git commands, explains what it is doing, and runs them safely. It also features a fully interactive terminal user interface (TUI) dashboard to help manage your repositories with ease.
 
 ---
 
-## 🚀 Installation
+## Features
 
-For Python command-line applications like Ace, it is highly recommended to install using **`pipx`**. `pipx` automatically installs the application in an isolated environment and manages your system `PATH` so the executable works globally without conflict.
+*   **Natural Language Git Commands**: Translate commands like "undo my last commit but keep changes" or "create a branch login-page" into clean, standard Git actions.
+*   **AI-Powered Commits**: Analyzes staged diffs and generates Conventional Commit messages automatically.
+*   **Automated Code Review**: Rates code quality and points out bugs, security flaws, or styling issues inside staged or unstaged diffs.
+*   **Merge Conflict Resolution**: Interactively walks you through conflict blocks and suggests correct merges.
+*   **Rich Repo Stats and Changelogs**: Instantly computes repository statistics (commits, additions, deletions, file counts) and generates markdown release notes since the last tag.
+*   **Semantic Commit Search**: Search commits by natural language queries (e.g. "fixed the authorization bug") instead of matching literal strings.
+*   **Interactive TUI Dashboard**: Run `ace dash` to launch a terminal interface showing current status, branch info, commit charts, and interactive menus.
+*   **Safety Features**: Classifies actions into safe, moderate, or destructive levels, and requests confirmation before running destructive operations.
+
+---
+
+## Installation
+
+For Python command-line applications like Ace, it is highly recommended to install using **pipx**. pipx automatically installs the application in an isolated environment and manages your system PATH so the executable works globally without conflict.
 
 ### Option A: Install via pipx (Recommended)
-1. Install `pipx` and configure your system `PATH` (only needs to be done once):
+1. Install pipx and configure your system PATH (only needs to be done once):
    ```bash
    pip install pipx
    pipx ensurepath
@@ -53,7 +57,7 @@ For Python command-line applications like Ace, it is highly recommended to insta
    ```
 
 ### Option B: Install via standard pip (Alternative)
-You can also install Ace globally using standard `pip`:
+You can also install Ace globally using standard pip:
 ```bash
 pip install ace-git-copilot
 ```
@@ -64,7 +68,7 @@ python -m ace dash
 
 ---
 
-## ⚙️ Configuration & Setup
+## Configuration and Setup
 
 Run the built-in configuration wizard to select your AI model provider:
 ```bash
@@ -74,7 +78,7 @@ Ace saves your configuration file to `~/.ace/config.toml`. It supports:
 
 ### 1. Cloud Models (NVIDIA NIM API)
 Uses cloud-hosted high-performance models. 
-* To use this, you'll need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
+* To use this, you will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
 
 ### 2. Local Models (Ollama)
 For a 100% private, offline, and free experience.
@@ -83,9 +87,9 @@ For a 100% private, offline, and free experience.
 
 ---
 
-## 🛠️ Usage
+## Usage
 
-### 💬 Natural Language Mode
+### Natural Language Mode
 Run natural language requests directly in quotes:
 ```bash
 ace "stage everything and commit with a message about authentication"
@@ -93,7 +97,7 @@ ace "undo my last commit but keep the files"
 ace "switch to a new branch called design-updates"
 ```
 
-### 📋 Command-Line Toolchain
+### Command-Line Toolchain
 Ace has dedicated subcommands for specific tasks. Here is the complete command list:
 
 | Command | Shorthand | Description |
@@ -116,7 +120,7 @@ Ace has dedicated subcommands for specific tasks. Here is the complete command l
 
 ---
 
-## 🎨 Interactive Terminal Dashboard (TUI)
+## Interactive Terminal Dashboard (TUI)
 
 Launch the repository dashboard by running:
 ```bash
@@ -124,12 +128,12 @@ ace dash
 ```
 
 The dashboard features:
-*   A vibrant start-up logo.
+*   A start-up logo.
 *   Active branch info, tracking status, and repository charts.
 *   Interactive shortcuts for one-key commits, reviews, undos, and configuration management.
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more details.

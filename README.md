@@ -1,5 +1,14 @@
 # ♠️ Ace — AI-Powered Git Copilot
 
+```text
+ █████╗   ██████╗ ███████╗
+██╔══██╗ ██╔════╝ ██╔════╝
+███████║ ██║      █████╗  
+██╔══██║ ██║      ██╔══╝  
+██║  ██║ ╚██████╗ ███████╗
+╚═╝  ╚═╝  ╚═════╝ ╚══════╝
+```
+
 [![PyPI Version](https://img.shields.io/pypi/v/ace-git-copilot?color=blue)](https://pypi.org/project/ace-git-copilot/)
 [![Python Version](https://img.shields.io/pypi/pyversions/ace-git-copilot)](https://pypi.org/project/ace-git-copilot/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -23,16 +32,34 @@
 
 ## 🚀 Installation
 
-Install the package directly from PyPI:
+For Python command-line applications like Ace, it is highly recommended to install using **`pipx`**. `pipx` automatically installs the application in an isolated environment and manages your system `PATH` so the executable works globally without conflict.
+
+### Option A: Install via pipx (Recommended)
+1. Install `pipx` and configure your system `PATH` (only needs to be done once):
+   ```bash
+   pip install pipx
+   pipx ensurepath
+   ```
+   *(Note: If `pipx ensurepath` modified your path, close your current terminal window and open a new one to apply).*
+
+2. Install Ace:
+   ```bash
+   pipx install ace-git-copilot
+   ```
+
+3. Run it directly:
+   ```bash
+   ace dash
+   ```
+
+### Option B: Install via standard pip (Alternative)
+You can also install Ace globally using standard `pip`:
 ```bash
 pip install ace-git-copilot
 ```
-
-*Note: Make sure your Python scripts path (e.g., `AppData\Roaming\Python\Python3xx\Scripts` on Windows) is added to your environment `PATH` variable.*
-
-To update to the latest version:
+*Note: If you run into a `command not found` error, you can bypass your system PATH and run the tool directly through Python module execution:*
 ```bash
-pip install --upgrade ace-git-copilot
+python -m ace dash
 ```
 
 ---
@@ -44,8 +71,15 @@ Run the built-in configuration wizard to select your AI model provider:
 ace setup
 ```
 Ace saves your configuration file to `~/.ace/config.toml`. It supports:
-1.  **NVIDIA NIM Cloud API** (high-speed, high-accuracy models) using your NVIDIA developer API key.
-2.  **Local Ollama Models** (100% offline, free private local models like `qwen2.5-coder`, `llama3.1`, or `mistral`). If the requested model isn't downloaded, Ace will automatically pull it for you.
+
+### 1. Cloud Models (NVIDIA NIM API)
+Uses cloud-hosted high-performance models. 
+* To use this, you'll need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
+
+### 2. Local Models (Ollama)
+For a 100% private, offline, and free experience.
+* Ensure [Ollama](https://ollama.com/) is installed and running on your system.
+* You can select models like `qwen2.5-coder`, `llama3.1`, or `mistral`. If the selected model is not downloaded yet, Ace will automatically pull it for you during setup.
 
 ---
 
@@ -60,10 +94,11 @@ ace "switch to a new branch called design-updates"
 ```
 
 ### 📋 Command-Line Toolchain
-Ace has dedicated subcommands for specific tasks:
+Ace has dedicated subcommands for specific tasks. Here is the complete command list:
 
 | Command | Shorthand | Description |
 |:---|:---|:---|
+| `ace setup` | — | Launch the initial setup wizard to configure AI models. |
 | `ace stage [files]` | `ace add` | Stage specific files or all untracked changes. |
 | `ace commit` | — | Generate Conventional Commit messages from diffs and commit. |
 | `ace review` | — | Run code review on staged, unstaged, or branch changes. |
@@ -75,8 +110,9 @@ Ace has dedicated subcommands for specific tasks:
 | `ace search <query>` | — | Semantically search commit history using natural language. |
 | `ace ignore <rule>` | — | Generate and append standard templates to `.gitignore`. |
 | `ace undo` | — | Safely revert the last action after checking repository status. |
-| `ace dash` | — | Launch the interactive repository management console. |
+| `ace dash` | — | Launch the interactive repository management console (TUI). |
 | `ace config` | — | Print out active configuration settings. |
+| `ace help` | — | Show user guide and help information on how to use Ace. |
 
 ---
 

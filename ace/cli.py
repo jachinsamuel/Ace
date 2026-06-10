@@ -2,6 +2,7 @@ import sys
 import os
 from typing import Optional, List
 import typer
+import click
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -302,7 +303,7 @@ def commit_cmd(
                 
         elif choice == "e":
             # Edit in editor
-            edited = typer.edit(msg)
+            edited = click.edit(msg)
             if edited is not None and edited.strip():
                 msg = edited.strip()
             else:
@@ -688,7 +689,7 @@ def resolve_cmd(
                 replacements.append((sugg["full_block"], sugg["incoming"]))
                 print_success("Keeping incoming changes.")
             elif choice == "m":
-                edited = typer.edit(sugg["suggested_merged"])
+                edited = click.edit(sugg["suggested_merged"])
                 if edited is not None:
                     replacements.append((sugg["full_block"], edited.strip()))
                     print_success("Applied manual edit.")

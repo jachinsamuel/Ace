@@ -60,7 +60,7 @@ def show_plan(commands: List[str], explanations: List[str]) -> None:
     for i, (cmd, exp) in enumerate(zip(commands, explanations), 1):
         content.append(f"\n {i}. ", style="ai")
         content.append(f"{cmd}\n", style="bold white")
-        content.append(f"    ↳ {exp}\n", style="dim italic")
+        content.append(f"    -> {exp}\n", style="dim italic")
 
     panel = Panel(
         content,

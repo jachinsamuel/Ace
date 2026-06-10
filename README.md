@@ -74,16 +74,33 @@ Run the built-in configuration wizard to select your AI model provider:
 ```bash
 ace setup
 ```
-Ace saves your configuration file to `~/.ace/config.toml`. It supports:
+Ace saves your configuration file to `~/.ace/config.toml`. It supports the following AI model providers:
 
-### 1. Cloud Models (NVIDIA NIM API)
-Uses cloud-hosted high-performance models. 
-* To use this, you will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
+### 1. NVIDIA NIM API (Cloud)
+Uses cloud-hosted high-performance models.
+* You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
+* Default model: `meta/llama-3.3-70b-instruct`
 
-### 2. Local Models (Ollama)
+### 2. Ollama (Local Models)
 For a 100% private, offline, and free experience.
 * Ensure [Ollama](https://ollama.com/) is installed and running on your system.
-* You can select models like `qwen2.5-coder`, `llama3.1`, or `mistral`. If the selected model is not downloaded yet, Ace will automatically pull it for you during setup.
+* Default model: `qwen2.5-coder:7b`
+* If the selected model is not downloaded yet, Ace will automatically pull it for you during setup.
+
+### 3. OpenAI
+Uses OpenAI GPT models.
+* You will need an OpenAI API key.
+* Default model: `gpt-4o-mini`
+
+### 4. Anthropic
+Uses Anthropic Claude models.
+* You will need an Anthropic API key.
+* Default model: `claude-3-5-sonnet-latest`
+
+### 5. Custom OpenAI-Compatible
+Allows using any custom endpoint that supports the OpenAI API schema (e.g. Groq, OpenRouter, Together AI).
+* You will need the provider's API key and custom API base URL (e.g. `https://api.groq.com/openai/v1`).
+* Default model: `custom-model`
 
 ---
 

@@ -13,6 +13,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "nvidia_model": "meta/llama-3.3-70b-instruct",
         "ollama_model": "qwen2.5-coder:7b",
         "ollama_url": "http://localhost:11434",
+        "openai_api_key": "",
+        "openai_model": "gpt-4o-mini",
+        "anthropic_api_key": "",
+        "anthropic_model": "claude-3-5-sonnet-latest",
+        "custom_api_key": "",
+        "custom_api_base": "",
+        "custom_model": "",
     },
     "commit": {
         "format": "conventional",
@@ -116,6 +123,33 @@ def get_config() -> Config:
     env_ollama_url = os.getenv("OLLAMA_URL")
     if env_ollama_url:
         data["ai"]["ollama_url"] = env_ollama_url
+
+    # OpenAI API Key & Model
+    env_openai_key = os.getenv("OPENAI_API_KEY")
+    if env_openai_key:
+        data["ai"]["openai_api_key"] = env_openai_key
+    env_openai_model = os.getenv("OPENAI_MODEL")
+    if env_openai_model:
+        data["ai"]["openai_model"] = env_openai_model
+
+    # Anthropic API Key & Model
+    env_anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if env_anthropic_key:
+        data["ai"]["anthropic_api_key"] = env_anthropic_key
+    env_anthropic_model = os.getenv("ANTHROPIC_MODEL")
+    if env_anthropic_model:
+        data["ai"]["anthropic_model"] = env_anthropic_model
+
+    # Custom API Key, Base, & Model
+    env_custom_key = os.getenv("CUSTOM_API_KEY")
+    if env_custom_key:
+        data["ai"]["custom_api_key"] = env_custom_key
+    env_custom_base = os.getenv("CUSTOM_API_BASE")
+    if env_custom_base:
+        data["ai"]["custom_api_base"] = env_custom_base
+    env_custom_model = os.getenv("CUSTOM_MODEL")
+    if env_custom_model:
+        data["ai"]["custom_model"] = env_custom_model
 
     return Config(data)
 

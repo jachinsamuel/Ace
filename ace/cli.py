@@ -404,18 +404,42 @@ def setup_cmd():
         pass
         
     console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup![/bold orange3] 🚀\n")
+    console.print("Configure your preferences and AI provider step-by-step.\n")
     
     config = get_config()
 
-    
     # Provider select
-    provider = typer.prompt("Select AI Provider (nvidia or ollama)", default=config.ai.provider)
-    provider = provider.lower().strip()
-    if provider not in ("nvidia", "ollama"):
-        print_error("Invalid provider. Defaulting to 'nvidia'.")
+    console.print("[bold]Select your AI Provider:[/bold]")
+    console.print("  [bold cyan]1[/bold cyan] -> NVIDIA API Endpoints (Cloud)")
+    console.print("  [bold cyan]2[/bold cyan] -> Ollama (Local Models)")
+    console.print("  [bold cyan]3[/bold cyan] -> OpenAI (GPT-4o, etc.)")
+    console.print("  [bold cyan]4[/bold cyan] -> Anthropic (Claude)")
+    console.print("  [bold cyan]5[/bold cyan] -> Custom OpenAI-Compatible (Groq, OpenRouter, etc.)")
+    console.print("")
+
+    provider_map = {
+        "1": "nvidia",
+        "2": "ollama",
+        "3": "openai",
+        "4": "anthropic",
+        "5": "custom",
+    }
+    provider_reverse_map = {v: k for k, v in provider_map.items()}
+    default_choice = provider_reverse_map.get(config.ai.provider, "1")
+
+    choice = typer.prompt("Enter choice (1-5)", default=default_choice)
+    choice_clean = choice.strip().lower()
+
+    if choice_clean in provider_map:
+        provider = provider_map[choice_clean]
+    elif choice_clean in provider_reverse_map:
+        provider = choice_clean
+    else:
+        print_warning("Invalid choice. Defaulting to NVIDIA.")
         provider = "nvidia"
         
     config.ai.provider = provider
+    console.print(f"Selected Provider: [bold cyan]{provider.upper()}[/bold cyan]\n")
     
     # NVIDIA setup
     if provider == "nvidia":
@@ -430,7 +454,31 @@ def setup_cmd():
         config.ai.ollama_url = ollama_url
         ollama_model = typer.prompt("Ollama model name", default=config.ai.ollama_model)
         config.ai.ollama_model = ollama_model
+
+    # OpenAI setup
+    elif provider == "openai":
+        openai_key = typer.prompt("Enter your OpenAI API Key", default=config.ai.openai_api_key, hide_input=True)
+        config.ai.openai_api_key = openai_key
+        openai_model = typer.prompt("OpenAI LLM Model name", default=config.ai.openai_model)
+        config.ai.openai_model = openai_model
+
+    # Anthropic setup
+    elif provider == "anthropic":
+        anthropic_key = typer.prompt("Enter your Anthropic API Key", default=config.ai.anthropic_api_key, hide_input=True)
+        config.ai.anthropic_api_key = anthropic_key
+        anthropic_model = typer.prompt("Anthropic LLM Model name", default=config.ai.anthropic_model)
+        config.ai.anthropic_model = anthropic_model
+
+    # Custom setup
+    elif provider == "custom":
+        custom_base = typer.prompt("Custom API Base URL (e.g., https://api.groq.com/openai/v1)", default=config.ai.custom_api_base)
+        config.ai.custom_api_base = custom_base
+        custom_key = typer.prompt("Enter your Custom API Key", default=config.ai.custom_api_key, hide_input=True)
+        config.ai.custom_api_key = custom_key
+        custom_model = typer.prompt("Custom LLM Model name", default=config.ai.custom_model)
+        config.ai.custom_model = custom_model
         
+    console.print("\n[bold]Configure Commit Preferences:[/bold]")
     # Commit pref setup
     commit_format = typer.prompt("Default commit format (conventional, simple, detailed)", default=config.commit.format)
     if commit_format.lower().strip() in ("conventional", "simple", "detailed"):
@@ -438,6 +486,9 @@ def setup_cmd():
         
     sign_commits = confirm("Should Ace sign commits by default (GPG/SSH)?", default=config.commit.sign)
     config.commit.sign = sign_commits
+
+    use_emoji = confirm("Should Ace use emojis in commit messages by default?", default=config.commit.emoji)
+    config.commit.emoji = use_emoji
     
     # Save config
     try:
@@ -455,16 +506,23 @@ def config_cmd():
     table.add_column("Setting")
     table.add_column("Value")
     
-    # Mask API key
-    nv_key = config.ai.nvidia_api_key
-    masked_key = nv_key[:8] + "..." if nv_key else "Not set"
+    # Mask API key helper
+    def mask_key(k: str) -> str:
+        return k[:8] + "..." if k else "Not set"
     
     # Add items
     table.add_row("AI", "Provider", config.ai.provider)
-    table.add_row("AI", "NVIDIA API Key", masked_key)
+    table.add_row("AI", "NVIDIA API Key", mask_key(config.ai.nvidia_api_key))
     table.add_row("AI", "NVIDIA Model", config.ai.nvidia_model)
     table.add_row("AI", "Ollama URL", config.ai.ollama_url)
     table.add_row("AI", "Ollama Model", config.ai.ollama_model)
+    table.add_row("AI", "OpenAI API Key", mask_key(config.ai.openai_api_key))
+    table.add_row("AI", "OpenAI Model", config.ai.openai_model)
+    table.add_row("AI", "Anthropic API Key", mask_key(config.ai.anthropic_api_key))
+    table.add_row("AI", "Anthropic Model", config.ai.anthropic_model)
+    table.add_row("AI", "Custom API Base URL", config.ai.custom_api_base or "Not set")
+    table.add_row("AI", "Custom API Key", mask_key(config.ai.custom_api_key))
+    table.add_row("AI", "Custom Model", config.ai.custom_model or "Not set")
     
     table.add_row("Commit", "Default Format", config.commit.format)
     table.add_row("Commit", "Sign Commits", str(config.commit.sign))

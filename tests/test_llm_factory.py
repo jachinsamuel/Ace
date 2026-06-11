@@ -51,7 +51,6 @@ def test_ensure_ollama_model_pull(mock_confirm, mock_urlopen):
     assert mock_confirm.called
 
 def test_get_llm_nvidia():
-    import pytest
     from ace.core.config import Config
     mock_config = Config({
         "ai": {

@@ -25,7 +25,6 @@ from ace.ui.display import (
     print_info,
     print_success,
     print_warning,
-    print_error,
     show_error_panel,
     show_warning_panel,
     show_commit_message,

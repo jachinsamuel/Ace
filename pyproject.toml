@@ -1,9 +1,17 @@
 [project]
 name = "ace-git-copilot"
-version = "0.2.1"
+version = "0.2.2"
 description = "AI-powered Git copilot — talk to Git in plain English"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "typer[all]>=0.12",
     "click>=8.0",

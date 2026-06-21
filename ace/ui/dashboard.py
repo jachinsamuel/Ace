@@ -1,5 +1,6 @@
 import click
 import typer
+from pathlib import Path
 from rich.panel import Panel
 from rich.table import Table
 from rich.columns import Columns
@@ -66,7 +67,43 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         
         changes_panel = Panel(changes_table, title="[bold]Workspace Changes[/bold]", border_style="yellow", expand=False)
         
-        console.print(Columns([status_panel, changes_panel]))
+        # Workspace sibling repositories detection
+        parent_dir = Path(git_ops.working_dir).parent
+        sibling_repos = []
+        try:
+            for p in parent_dir.iterdir():
+                if p.is_dir() and p != Path(git_ops.working_dir):
+                    if (p / ".git").exists():
+                        sibling_repos.append(p.name)
+        except Exception:
+            pass
+
+        sibling_panel = None
+        if sibling_repos:
+            sibling_table = Table.grid(padding=1)
+            sibling_table.add_column(style="bold #B388FF")
+            sibling_table.add_column(style="white")
+            
+            for idx, r_name in enumerate(sibling_repos[:4], 1):
+                sib_branch = "unknown"
+                try:
+                    import git
+                    s_repo = git.Repo(parent_dir / r_name)
+                    sib_branch = s_repo.active_branch.name
+                except Exception:
+                    pass
+                sibling_table.add_row(f"  📂 {r_name} ", f" ({sib_branch})")
+                
+            if len(sibling_repos) > 4:
+                sibling_table.add_row("  ... ", f" ({len(sibling_repos) - 4} more)")
+                
+            sibling_panel = Panel(sibling_table, title="[bold]Workspace Repos[/bold]", border_style="#B388FF", expand=False)
+
+        panels = [status_panel, changes_panel]
+        if sibling_panel:
+            panels.append(sibling_panel)
+            
+        console.print(Columns(panels))
         
         # 4. Detailed changes (if any)
         if status["staged"]:

@@ -239,9 +239,14 @@ def commit_cmd(
     format_override: Optional[str] = typer.Option(
         None, "--format", "-f", help="Override commit format (conventional, simple, detailed)"
     ),
+    prepare: Optional[str] = typer.Option(None, "--prepare", help="Path to commit message template file (hook mode)"),
 ):
     if not isinstance(format_override, str):
         format_override = None
+    if not isinstance(prepare, str):
+        prepare = None
+    if not isinstance(offline, bool):
+        offline = False
 
     # Initialize GitOps
     try:
@@ -255,6 +260,20 @@ def commit_cmd(
 
     # Stage checking and generation
     generator = CommitGenerator(git_ops)
+    
+    if prepare:
+        try:
+            get_llm(offline_override=offline)
+            msg = generator.generate_message(format_type=format_type, offline=offline)
+            with open(prepare, "w", encoding="utf-8") as f:
+                f.write(msg)
+            raise typer.Exit(code=0)
+        except NoStagedChangesError:
+            raise typer.Exit(code=0)
+        except Exception as e:
+            show_error_panel(f"Hook failed to generate commit message: {e}", "Ace Hook Error")
+            raise typer.Exit(code=1)
+            
     msg = None
     
     while True:
@@ -542,11 +561,16 @@ def review_cmd(
     all_changes: bool = typer.Option(False, "--all", "-a", help="Review all uncommitted changes (staged + unstaged)"),
     branch: Optional[str] = typer.Option(None, "--branch", "-b", help="Review all changes against a base branch/commit"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+    strict: bool = typer.Option(False, "--strict", help="Fail with exit code 1 if critical issues are found"),
 ):
     if not isinstance(file, str):
         file = None
     if not isinstance(branch, str):
         branch = None
+    if not isinstance(strict, bool):
+        strict = False
+    if not isinstance(offline, bool):
+        offline = False
 
     # Initialize GitOps
     try:
@@ -607,6 +631,11 @@ def review_cmd(
         raise typer.Exit(code=1)
 
     show_review(findings, score)
+    
+    if strict:
+        critical_count = sum(1 for f in findings if f.get("severity", "info").lower() == "critical")
+        if critical_count > 0:
+            raise typer.Exit(code=1)
 
 @app.command(name="resolve", help="AI-assisted merge conflict resolution.")
 def resolve_cmd(
@@ -857,6 +886,117 @@ def stats_cmd():
             
         console.print(timeline_table)
         console.print()
+
+
+@app.command(name="doctor", help="Run diagnostics on repository state and get AI-assisted recovery recommendations.")
+def doctor_cmd(
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    if not isinstance(offline, bool):
+        offline = False
+
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.core.diagnostics import GitDiagnostics
+    from ace.ai.prompts.doctor import DOCTOR_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from rich.markdown import Markdown
+    import json
+
+    diagnostics = GitDiagnostics(git_ops)
+    
+    with spinner("Analyzing repository state..."):
+        report = diagnostics.run_diagnostics()
+
+    console.print()
+    if not report["has_issues"]:
+        print_success("All checks passed! Your Git repository is healthy and in a normal state.")
+        if not report["dirty_files"]["staged"] and not report["dirty_files"]["unstaged"] and not report["dirty_files"]["untracked"]:
+            console.print("  [dim]No lock files, large files, or pending merges/rebases found. Workspace is clean.[/dim]")
+            raise typer.Exit(code=0)
+            
+    # Print diagnostic summary table
+    table = Table(
+        title="🩺 Git Diagnostics Status Report",
+        show_header=True,
+        header_style="bold #FF6D00",
+        box=box.ROUNDED,
+        border_style="#FF6D00"
+    )
+    table.add_column("Category", style="bold white")
+    table.add_column("Status", justify="left")
+    
+    # Detached head status
+    table.add_row(
+        "Branch Head",
+        "[bold green]OK[/bold green] (Branch: " + (report["sync_status"]["branch"]) + ")"
+        if not report["detached_head"]
+        else "[bold red]Detached HEAD[/bold red]"
+    )
+    
+    # Operation state
+    op_in_progress = report["operation_state"]["in_progress"]
+    table.add_row(
+        "Operation State",
+        "[bold yellow]" + report["operation_state"]["type"].upper() + " in progress[/bold yellow]"
+        if op_in_progress
+        else "[bold green]Normal[/bold green]"
+    )
+    
+    # Lock files
+    table.add_row(
+        "Process Lock Files",
+        "[bold red]Lock files found[/bold red]"
+        if report["locks"]
+        else "[bold green]None[/bold green]"
+    )
+    
+    # Large files
+    table.add_row(
+        "Large Untracked Files",
+        "[bold red]Large files detected[/bold red]"
+        if report["large_files"]
+        else "[bold green]None[/bold green]"
+    )
+    
+    # Workspace status
+    dirty = report["dirty_files"]
+    dirty_desc = f"[green]staged: {dirty['staged']}[/green] | [yellow]unstaged: {dirty['unstaged']}[/yellow] | [dim]untracked: {dirty['untracked']}[/dim]"
+    table.add_row("Working Directory", dirty_desc)
+    
+    console.print(table)
+    console.print()
+
+    # Now call LLM for recommendations
+    try:
+        llm = get_llm(offline_override=offline)
+        
+        diagnostics_json = json.dumps(report, indent=2)
+        usr_prompt = USER_PROMPT_TEMPLATE.format(diagnostics_json=diagnostics_json)
+        
+        messages = [
+            SystemMessage(content=DOCTOR_SYSTEM_PROMPT),
+            HumanMessage(content=usr_prompt)
+        ]
+        
+        with spinner("Consulting repository doctor..."):
+            response = llm.invoke(messages)
+            
+        console.print(Panel(
+            Markdown(response.content.strip()),
+            title="[bold white]🩺 AI Diagnostics & Recovery Report[/bold white]",
+            border_style="#00D5FF",
+            box=box.ROUNDED,
+            expand=False,
+            padding=(1, 2)
+        ))
+    except Exception as e:
+        show_error_panel(f"Failed to generate recovery report: {e}", "Doctor Error")
+        raise typer.Exit(code=1)
 
 
 @app.command(name="explain", help="Explain a Git command, flag, concept, or error in plain English.")
@@ -1123,6 +1263,55 @@ def search_cmd(
     console.print(table)
     console.print()
 
+    from ace.ui.prompts import prompt_select, confirm
+    
+    if confirm("Would you like to select a commit to inspect/checkout?", default=False):
+        options = []
+        for match in matches:
+            options.append(f"{match.get('hexsha', '')[:7]} - {match.get('summary', '')}")
+            
+        selected_idx = prompt_select(options, prompt_text="Select commit number to inspect")
+        if selected_idx != -1:
+            selected_match = matches[selected_idx]
+            selected_sha = selected_match.get("hexsha", "")
+            
+            console.print(f"\nSelected Commit: [bold]{selected_sha}[/bold]")
+            
+            # Show options
+            console.print("\n[bold]Select action:[/bold]")
+            console.print("  [bold cyan][d][/bold cyan] -> View diff of this commit")
+            console.print("  [bold cyan][c][/bold cyan] -> Checkout this commit (detached HEAD)")
+            console.print("  [bold cyan][b][/bold cyan] -> Create and switch to new branch at this commit")
+            console.print("  [bold cyan][s][/bold cyan] -> Skip/Quit")
+            
+            action = click.getchar().lower().strip()
+            console.print(action)
+            console.print()
+            
+            if action == "d":
+                try:
+                    diff_data = git_ops.repo.git.show(selected_sha)
+                    from ace.ui.display import show_diff
+                    show_diff(diff_data)
+                except Exception as e:
+                    show_error_panel(f"Failed to fetch diff: {e}", "Git Error")
+            elif action == "c":
+                try:
+                    with spinner(f"Checking out commit {selected_sha[:7]}..."):
+                        git_ops.execute(f"checkout {selected_sha}")
+                    print_success(f"Checked out {selected_sha[:7]} (detached HEAD state).")
+                except Exception as e:
+                    show_error_panel(f"Checkout failed: {e}", "Git Error")
+            elif action == "b":
+                branch_name = click.prompt("Enter new branch name")
+                if branch_name.strip():
+                    try:
+                        with spinner(f"Creating branch '{branch_name}' at {selected_sha[:7]}..."):
+                            git_ops.execute(f"checkout -b {branch_name} {selected_sha}")
+                        print_success(f"Successfully created and switched to branch '{branch_name}'!")
+                    except Exception as e:
+                        show_error_panel(f"Failed to create branch: {e}", "Git Error")
+
 @app.command(name="ignore", help="Smart gitignore generation and template addition.")
 def ignore_cmd(
     query: str = typer.Argument(..., help="What to ignore (e.g. 'node_modules', 'temp files')"),
@@ -1219,6 +1408,9 @@ def help_cmd():
     table.add_row("changelog", "Generate a markdown changelog between commits or tags", "ace changelog --from v1.0.0")
     table.add_row("explain", "Explain a Git command, concept, flag, or error in plain English", "ace explain \"git rebase --onto\"")
     table.add_row("undo", "Smart undo that analyzes state and safely reverts the last action", "ace undo")
+    table.add_row("doctor", "Run repository diagnostics and get AI-assisted recovery advice", "ace doctor")
+    table.add_row("hook", "Install or uninstall pre-commit and prepare-commit-msg Git hooks", "ace hook install")
+    table.add_row("squash", "AI-assisted automated commit squashing and history clean up", "ace squash")
     table.add_row("pr", "Draft a detailed pull request description from branch differences", "ace pr -b main")
     table.add_row("search", "Perform a semantic commit search of recent commit history", "ace search \"auth fix\"")
     table.add_row("ignore", "Generate gitignore rules and append them to .gitignore", "ace ignore \"temp log files\"")
@@ -1263,6 +1455,143 @@ def stage_cmd(
     files: List[str] = typer.Argument(..., help="Files or patterns to stage (use '.' to stage all changes)"),
 ):
     add_cmd(files)
+
+@app.command(name="squash", help="AI-assisted automated commit squashing and history clean up.")
+def squash_cmd(
+    base: Optional[str] = typer.Option(None, "--base", "-b", help="Base branch/commit to squash against (defaults to remote tracking or 'main')"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    if not isinstance(base, str):
+        base = None
+    if not isinstance(offline, bool):
+        offline = False
+
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    if not base:
+        tracking = git_ops.get_upstream_tracking()
+        if tracking:
+            base = tracking.split("/")[0] if "/" in tracking else tracking
+        else:
+            branches = git_ops.get_branches()
+            if "main" in branches:
+                base = "main"
+            elif "master" in branches:
+                base = "master"
+            else:
+                base = "main"
+
+    from ace.ai.rebase_helper import RebaseHelper
+    helper = RebaseHelper(git_ops)
+    
+    with spinner(f"Analyzing local commits against '{base}'..."):
+        commits = helper.get_local_commits(base)
+        
+    if not commits:
+        print_success(f"No local commits found ahead of '{base}'. History is clean.")
+        raise typer.Exit(code=0)
+
+    try:
+        get_llm(offline_override=offline)
+        with spinner("Analyzing history for squash and cleanup actions..."):
+            parsed = helper.analyze_commits(commits, offline=offline)
+    except Exception as e:
+        show_error_panel(f"Rebase analysis failed: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    recommendations = parsed.get("recommendations", [])
+    explanation = parsed.get("explanation", "")
+
+    if not recommendations:
+        print_info("No squashing recommendations generated.")
+        console.print(f"Explanation: {explanation}")
+        raise typer.Exit(code=0)
+
+    # Show proposed squash plan table
+    table = Table(
+        title="🧠 Proposed Commit Squash Plan",
+        show_header=True,
+        header_style="bold #FF6D00",
+        box=box.ROUNDED,
+        border_style="#FF6D00"
+    )
+    table.add_column("Commit", style="dim", width=8)
+    table.add_column("Action", style="bold")
+    table.add_column("Current Summary")
+    table.add_column("Reworded Summary (if any)", style="italic green")
+
+    for rec in recommendations:
+        action = rec.get("action", "pick").lower()
+        if action == "pick":
+            action_styled = "[green]pick[/green]"
+        elif action == "squash":
+            action_styled = "[yellow]squash[/yellow]"
+        elif action == "reword":
+            action_styled = "[cyan]reword[/cyan]"
+        elif action == "drop":
+            action_styled = "[red]drop[/red]"
+        else:
+            action_styled = action
+            
+        new_msg = rec.get("new_message") or ""
+        table.add_row(
+            rec.get("hexsha", "")[:7],
+            action_styled,
+            rec.get("summary", ""),
+            new_msg
+        )
+
+    console.print()
+    console.print(table)
+    console.print(f"\n[bold]Reasoning:[/bold] {explanation}\n")
+
+    if confirm("Do you want to execute this squash plan?", default=True):
+        try:
+            with spinner("Running automated rebase/squash..."):
+                res = helper.run_auto_rebase(base, recommendations)
+            print_success("History squashed and cleaned successfully!")
+            if res.strip():
+                console.print(f"[dim]{res}[/dim]")
+        except Exception as e:
+            show_error_panel(f"Failed to execute rebase/squash: {e}", "Git Rebase Error")
+            raise typer.Exit(code=1)
+    else:
+        print_info("Squash aborted.")
+
+@app.command(name="hook", help="Install or uninstall AI-powered pre-commit or prepare-commit-msg Git hooks.")
+def hook_cmd(
+    action: str = typer.Argument(..., help="Action to perform: 'install' or 'uninstall'"),
+):
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    from ace.core.hooks import GitHooksManager
+    manager = GitHooksManager(git_ops)
+
+    if action.strip().lower() == "install":
+        with spinner("Installing pre-commit code reviewer hook..."):
+            p1 = manager.install_pre_commit()
+        with spinner("Installing prepare-commit-msg generator hook..."):
+            p2 = manager.install_prepare_commit_msg()
+            
+        print_success("Ace Git hooks installed successfully!")
+        console.print(f"  - pre-commit: [dim]{p1}[/dim]")
+        console.print(f"  - prepare-commit-msg: [dim]{p2}[/dim]")
+        
+    elif action.strip().lower() == "uninstall":
+        with spinner("Removing Ace Git hooks..."):
+            manager.uninstall_all()
+        print_success("Ace Git hooks uninstalled successfully.")
+    else:
+        show_error_panel("Invalid action. Use 'install' or 'uninstall'.", "Usage Error")
+        raise typer.Exit(code=1)
 
 if __name__ == "__main__":
     app()

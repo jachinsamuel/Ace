@@ -68,3 +68,22 @@ def prompt_action(options: Dict[str, Tuple[str, str]], default_key: str = "\r") 
             
         # Invalid option, try again silently or with a brief indicator
         pass
+
+def prompt_select(options: list, prompt_text: str = "Choose option", default: str = "s") -> int:
+    """Prompt the user to select an item from a numbered list of choices."""
+    for idx, opt in enumerate(options, 1):
+        console.print(f"  [bold #00D5FF][{idx}][/bold #00D5FF] {opt}")
+    console.print()
+    
+    while True:
+        choice = click.prompt(prompt_text, default=default)
+        choice_clean = choice.strip().lower()
+        if choice_clean in ("s", "skip", "q", "quit", "exit"):
+            return -1
+        try:
+            val = int(choice_clean)
+            if 1 <= val <= len(options):
+                return val - 1
+        except ValueError:
+            pass
+        console.print(" [error]✖ Invalid choice. Try again or enter 's' to skip.[/error]")

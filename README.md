@@ -28,8 +28,11 @@ Ace is an intelligent command-line tool that brings AI assistance directly to yo
 *   **Automated Code Review**: Rates code quality and points out bugs, security flaws, or styling issues inside staged or unstaged diffs.
 *   **Merge Conflict Resolution**: Interactively walks you through conflict blocks and suggests correct merges.
 *   **Rich Repo Stats and Changelogs**: Instantly computes repository statistics (commits, additions, deletions, file counts) and generates markdown release notes since the last tag.
-*   **Semantic Commit Search**: Search commits by natural language queries (e.g. "fixed the authorization bug") instead of matching literal strings.
-*   **Interactive TUI Dashboard**: Run `ace dash` to launch a terminal interface showing current status, branch info, commit charts, and interactive menus.
+*   **Semantic Commit Search & Checkout**: Search commits by natural language queries and interactively inspect diffs, checkout commits, or create branches.
+*   **Interactive TUI Dashboard**: Run `ace dash` to launch a terminal interface showing current status, branch info, workspace repository listings, and interactive menus.
+*   **Repository Health Diagnostics**: Run `ace doctor` to run repository health checks (detached heads, locks, large files) and generate step-by-step AI recovery advice.
+*   **Smart Git Hooks**: Run `ace hook install` to register pre-commit code review checks and prepare-commit-msg message drafting.
+*   **AI Auto-Squashing & Rebasing**: Run `ace squash` to automatically analyze branch commits and run automated interactive rebases.
 *   **Safety Features**: Classifies actions into safe, moderate, or destructive levels, and requests confirmation before running destructive operations.
 
 ---
@@ -125,10 +128,13 @@ Ace has dedicated subcommands for specific tasks. Here is the complete command l
 | `ace review` | — | Run code review on staged, unstaged, or branch changes. |
 | `ace resolve` | — | Step-by-step interactive merge conflict resolver. |
 | `ace explain <query>`| — | Explain complex Git commands or repository errors. |
+| `ace doctor` | — | Run repository diagnostics and generate step-by-step AI recovery recipes. |
+| `ace hook <action>` | — | Install or uninstall pre-commit and prepare-commit-msg Git hooks. |
 | `ace stats` | — | Rich visualization of repo statistics, extension breakdowns, and history. |
 | `ace changelog` | — | Compile release changelogs since the last tag. |
 | `ace pr` | — | Draft a Markdown pull request title and description. |
-| `ace search <query>` | — | Semantically search commit history using natural language. |
+| `ace search <query>` | — | Semantically search commit history with interactive checkout options. |
+| `ace squash` | — | Automatically analyze commit history and run AI-guided interactive rebases. |
 | `ace ignore <rule>` | — | Generate and append standard templates to `.gitignore`. |
 | `ace undo` | — | Safely revert the last action after checking repository status. |
 | `ace dash` | — | Launch the interactive repository management console (TUI). |

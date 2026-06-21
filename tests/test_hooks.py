@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 from ace.core.hooks import GitHooksManager
 
 @pytest.fixture
@@ -19,7 +18,7 @@ def test_install_pre_commit(mock_git_ops):
          patch("ace.core.hooks.os.stat"), \
          patch("ace.core.hooks.os.chmod") as mock_chmod:
          
-        p = manager.install_pre_commit()
+        manager.install_pre_commit()
         
         mock_path.write_text.assert_called_once()
         args, kwargs = mock_path.write_text.call_args
@@ -36,7 +35,7 @@ def test_install_prepare_commit_msg(mock_git_ops):
          patch("ace.core.hooks.os.stat"), \
          patch("ace.core.hooks.os.chmod") as mock_chmod:
          
-        p = manager.install_prepare_commit_msg()
+        manager.install_prepare_commit_msg()
         
         mock_path.write_text.assert_called_once()
         args, kwargs = mock_path.write_text.call_args

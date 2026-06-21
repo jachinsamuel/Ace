@@ -565,6 +565,8 @@ def review_cmd(
 ):
     if not isinstance(file, str):
         file = None
+    if not isinstance(all_changes, bool):
+        all_changes = False
     if not isinstance(branch, str):
         branch = None
     if not isinstance(strict, bool):
@@ -1036,6 +1038,9 @@ def explain_cmd(
 def undo_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    if not isinstance(offline, bool):
+        offline = False
+
     # Initialize GitOps
     try:
         git_ops = GitOps()
@@ -1172,6 +1177,13 @@ def pr_cmd(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="File to write the generated PR description to"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    if not isinstance(base, str):
+        base = None
+    if not isinstance(output, str):
+        output = None
+    if not isinstance(offline, bool):
+        offline = False
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:

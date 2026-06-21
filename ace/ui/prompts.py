@@ -10,7 +10,7 @@ def confirm(question: str, default: bool = True) -> bool:
     Returns True if confirmed, False otherwise.
     """
     suffix = " [Y/n]" if default else " [y/N]"
-    prompt = f"[bold white]{question}[/bold white]{suffix}"
+    prompt = f" ❔ [bold white]{question}[/bold white] [bold #00D5FF]{suffix}[/bold #00D5FF] "
     
     # Render with rich, but prompt using click
     console.print(prompt, end="")
@@ -37,13 +37,14 @@ def prompt_action(options: Dict[str, Tuple[str, str]], default_key: str = "\r") 
     Returns the selected key character.
     """
     text = Text()
-    for key, (label, _) in options.items():
-        if text.cell_len > 0:
-            text.append("  ")
+    text.append("  ⌨️   ")
+    for idx, (key, (label, _)) in enumerate(options.items()):
+        if idx > 0:
+            text.append("  •  ", style="dim")
         
         display_key = "Enter" if key == "\r" else key
-        text.append(f"[{display_key}]", style="bold cyan")
-        text.append(f" {label}", style="white")
+        text.append(f"[{display_key}]", style="bold #00D5FF")
+        text.append(f" {label}", style="#E0E0E0")
         
     console.print(text)
     

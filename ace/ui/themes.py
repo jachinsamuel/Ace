@@ -2,21 +2,23 @@
 
 from rich.theme import Theme
 
-# Styles used across the app
+# Premium dark-mode color palette (Neon-Sunset style)
 THEME_STYLES = {
-    "info": "cyan",
-    "warning": "yellow",
-    "error": "bold red",
-    "success": "green",
-    "ai": "bold orange3",
-    "git.add": "green",
-    "git.delete": "red",
-    "git.modify": "yellow",
-    "command": "bold white on blue",
-    "path": "underline cyan",
-    "panel.border": "orange3",
+    "info": "bold #00D5FF",          # Vibrant cyan
+    "warning": "bold #FFD600",       # Neon yellow
+    "error": "bold #FF1744",         # Electric red
+    "success": "bold #00E676",       # Spring green
+    "ai": "bold #FF6D00",            # Safety orange / Ace signature highlight
+    "git.add": "#00E676",
+    "git.delete": "#FF1744",
+    "git.modify": "#FFD600",
+    "command": "bold #FFFFFF on #1A237E", # Deep blue background for git commands
+    "path": "underline #00D5FF",
+    "panel.border": "#FF6D00",
+    "highlight": "bold #B388FF",      # Light violet highlight
 }
 
 def get_rich_theme() -> Theme:
     """Get the Rich theme object containing all styling rules."""
     return Theme(THEME_STYLES)
+

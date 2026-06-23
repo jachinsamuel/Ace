@@ -144,7 +144,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         
         menu_table.add_row("\[c]", "AI Commit", "\[r]", "AI Code Review")
         menu_table.add_row("\[u]", "AI Smart Undo", "\[p]", "Plan Git Command (AI)")
-        menu_table.add_row("\[s]", "Repo Stats", "\[q]", "Quit Dashboard")
+        menu_table.add_row("\[s]", "Repo Stats", "\[w]", "Switch Repo")
+        menu_table.add_row("\[q]", "Quit Dashboard", "", "")
         
         console.print(Panel(menu_table, title="[bold white]Available Actions[/bold white]", border_style="orange3", expand=False))
         console.print()
@@ -156,7 +157,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
             if choice == "\r" or choice == "\n" or not choice:
                 choice = "q"
                 break
-            if choice in ("c", "r", "u", "p", "s", "q"):
+            if choice in ("c", "r", "u", "p", "s", "w", "q"):
                 break
         console.print(choice)
         console.print()
@@ -198,6 +199,44 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 stats_cmd()
             except Exception as e:
                 console.print(f"[red]Error running stats: {e}[/red]")
+            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
+            click.getchar()
+        elif choice == "w":
+            # Switch repository
+            from ace.ui.prompts import prompt_select
+            sibling_repos_all = []
+            try:
+                for p in parent_dir.iterdir():
+                    if p.is_dir() and (p / ".git").exists():
+                        sibling_repos_all.append(p.name)
+            except Exception:
+                pass
+            sibling_repos_all.sort()
+            
+            if not sibling_repos_all:
+                console.print("[yellow]No other repositories found in the parent directory.[/yellow]")
+            else:
+                console.print("[bold]Available repositories in workspace:[/bold]")
+                current_name = Path(git_ops.working_dir).name
+                display_options = []
+                for name in sibling_repos_all:
+                    if name == current_name:
+                        display_options.append(f"{name} [bold green](current)[/bold green]")
+                    else:
+                        display_options.append(name)
+                
+                sel_idx = prompt_select(display_options, prompt_text="Enter repository number to switch to", default="s")
+                if sel_idx >= 0:
+                    selected_repo_name = sibling_repos_all[sel_idx]
+                    new_path = parent_dir / selected_repo_name
+                    try:
+                        from ace.core.git_ops import GitOps as NewGitOps
+                        git_ops = NewGitOps(str(new_path))
+                        console.print(f"[green]Switched workspace to repository: [bold]{selected_repo_name}[/bold][/green]")
+                    except Exception as e:
+                        console.print(f"[red]Failed to switch repository: {e}[/red]")
+                else:
+                    console.print("[yellow]Switch cancelled.[/yellow]")
             console.print("\n[dim]Press any key to return to dashboard...[/dim]")
             click.getchar()
         elif choice == "p":

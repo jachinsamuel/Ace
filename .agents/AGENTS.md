@@ -14,4 +14,3 @@ Whenever a new version of Ace is created (e.g., version incremented in `pyprojec
    ```bash
    twine upload dist/*
    ```
-5. Ensure a corresponding git tag is pushed to GitHub.

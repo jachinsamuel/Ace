@@ -1,6 +1,3 @@
-import os
-import sys
-import pytest
 
 def test_combo_setup_then_commit(git_workspace):
     # Pairwise: Config Wizard & Commit Generator

@@ -46,3 +46,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ace"]
+
+[tool.ruff]
+exclude = [".agents", "scratch"]
+
+[tool.ruff.lint]
+ignore = ["E402", "F401"]

@@ -4,7 +4,6 @@ import json
 import socket
 import threading
 import subprocess
-from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import pytest
 import git

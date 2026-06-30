@@ -1,6 +1,3 @@
-import os
-import sys
-import pytest
 
 def test_workload_feature_lifecycle(git_workspace):
     # Scenario 1: Config -> Branch -> Code Change -> NL Commit -> Doctor check -> PR Draft -> Changelog

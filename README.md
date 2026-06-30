@@ -1,5 +1,5 @@
 # Ace — AI-Powered Git Copilot
-
+Author: Jachin Samuel <jachinsamuel007@gmail.com>
 ```text
  █████╗   ██████╗ ███████╗
 ██╔══██╗ ██╔════╝ ██╔════╝

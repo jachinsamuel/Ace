@@ -1,10 +1,13 @@
 [project]
 name = "ace-git-copilot"
-version = "0.2.6"
+version = "0.2.9"
 description = "AI-powered Git copilot — talk to Git in plain English"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+authors = [
+    { name = "Jachin Samuel", email = "jachinsamuel007@gmail.com" }
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -26,6 +29,11 @@ dependencies = [
     "toml>=0.10.2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jachinsamuel/Ace"
+Documentation = "https://github.com/jachinsamuel/Ace#readme"
+Bug-Tracker = "https://github.com/jachinsamuel/Ace/issues"
+
 [project.scripts]
 ace = "ace.cli:app"
 
@@ -38,4 +46,3 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ace"]
-

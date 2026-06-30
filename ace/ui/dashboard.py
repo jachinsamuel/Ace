@@ -4,8 +4,39 @@ from pathlib import Path
 from rich.panel import Panel
 from rich.table import Table
 from rich.columns import Columns
-from ace.ui.display import console, spinner, show_warning_panel
+from rich.text import Text
+from rich import box
+from ace.ui.display import console, spinner, show_warning_panel, print_success, print_warning
 from ace.core.git_ops import GitOps
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _branch_label(branch: str) -> Text:
+    """Render the current branch name with a small indicator."""
+    return Text.assemble(("  ", ""), (branch, "bold #00E676"))
+
+
+def _sync_label(ahead: int, behind: int) -> Text:
+    if not ahead and not behind:
+        return Text("Up to date", style="#00E676")
+    parts: list = []
+    if ahead:
+        parts.append((f"+{ahead} ahead", "bold #00E676"))
+    if ahead and behind:
+        parts.append(("  /  ", "dim #555555"))
+    if behind:
+        parts.append((f"-{behind} behind", "bold #FF1744"))
+    return Text.assemble(*parts)
+
+
+def _file_count_label(n: int, colour: str) -> Text:
+    if n == 0:
+        return Text("none", style="dim #666666")
+    return Text(str(n), style=f"bold {colour}")
+
+
+# ─── Dashboard entry point ───────────────────────────────────────────────────
 
 def show_dashboard(git_ops: GitOps, offline: bool = False):
     """
@@ -13,282 +44,335 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
     workspace changes, and a menu to quickly run Ace operations.
     """
     from ace.ui.banner import animate_fire_banner, get_fire_banner_static
-    
-    # Play fire animation once on initial startup
+
     click.clear()
     try:
         animate_fire_banner(duration_seconds=1.2)
     except Exception:
-        pass  # Fallback if animation fails
-        
+        pass
+
     while True:
         click.clear()
-        
-        # 1. Header
-        console.print(get_fire_banner_static())
-        console.print("[bold orange3]🚀 Ace AI Git Copilot Interactive Dashboard[/bold orange3]\n")
 
-        
-        # 2. Retrieve Status
+        # ── Header ──────────────────────────────────────────────────────────
+        console.print(get_fire_banner_static())
+        console.print(
+            Text.assemble(
+                ("  Ace", "bold #FF6D00"),
+                ("  AI Git Copilot", "bold white"),
+                ("  ·  Interactive Dashboard", "dim #9E9E9E"),
+            )
+        )
+        console.print()
+
+        # ── Fetch repo state ────────────────────────────────────────────────
         try:
             current_branch = git_ops.get_current_branch() or "Detached HEAD"
-            tracking = git_ops.get_upstream_tracking() or "No remote tracking branch"
-            ab = git_ops.get_ahead_behind()
-            status = git_ops.get_status()
-            
-            # Get last 3 commits
-            commits = git_ops.get_log(n=3)
+            tracking       = git_ops.get_upstream_tracking() or "No remote tracking"
+            ab             = git_ops.get_ahead_behind()
+            status         = git_ops.get_status()
+            commits        = git_ops.get_log(n=5)
         except Exception as e:
-            console.print(f"[red]Error retrieving repository status: {e}[/red]")
+            console.print(f"[error]Failed to read repository: {e}[/error]")
             break
-            
-        # 3. Status Grid / Panel
-        status_table = Table.grid(padding=1)
-        status_table.add_column(style="bold cyan", justify="right")
-        status_table.add_column()
-        
-        status_table.add_row("Branch:", current_branch)
-        status_table.add_row("Tracking:", tracking)
-        if ab["ahead"] or ab["behind"]:
-            status_table.add_row("Sync Status:", f"[green]Ahead {ab['ahead']}[/green] / [red]Behind {ab['behind']}[/red] commits")
-        else:
-            status_table.add_row("Sync Status:", "Up to date with remote")
-            
-        status_panel = Panel(status_table, title="[bold]Repository Status[/bold]", border_style="blue", expand=False)
-        
-        # Changes Panel
-        changes_table = Table.grid(padding=1)
-        changes_table.add_column(style="bold yellow", justify="right")
-        changes_table.add_column()
-        
-        changes_table.add_row("Staged:", f"{len(status['staged'])} files")
-        changes_table.add_row("Unstaged:", f"{len(status['unstaged'])} files")
-        changes_table.add_row("Untracked:", f"{len(status['untracked'])} files")
-        
-        changes_panel = Panel(changes_table, title="[bold]Workspace Changes[/bold]", border_style="yellow", expand=False)
-        
-        # Workspace sibling repositories detection
-        parent_dir = Path(git_ops.working_dir).parent
-        sibling_repos = []
+
+        # ── Status panel ────────────────────────────────────────────────────
+        st = Table.grid(padding=(0, 2))
+        st.add_column(style="label",  justify="right", min_width=12)
+        st.add_column()
+        st.add_row("Branch",   _branch_label(current_branch))
+        st.add_row("Remote",   Text(tracking,  style="#9E9E9E"))
+        st.add_row("Sync",     _sync_label(ab["ahead"], ab["behind"]))
+        status_panel = Panel(
+            st,
+            title="[bold white]Repository[/bold white]",
+            border_style="#00D5FF",
+            box=box.ROUNDED,
+            expand=False,
+            padding=(0, 1),
+        )
+
+        # ── Changes panel ───────────────────────────────────────────────────
+        ct = Table.grid(padding=(0, 2))
+        ct.add_column(style="label", justify="right", min_width=12)
+        ct.add_column()
+        ct.add_row("Staged",    _file_count_label(len(status["staged"]),    "#00E676"))
+        ct.add_row("Unstaged",  _file_count_label(len(status["unstaged"]),  "#FFD600"))
+        ct.add_row("Untracked", _file_count_label(len(status["untracked"]), "#9E9E9E"))
+        changes_panel = Panel(
+            ct,
+            title="[bold white]Workspace[/bold white]",
+            border_style="#FFD600",
+            box=box.ROUNDED,
+            expand=False,
+            padding=(0, 1),
+        )
+
+        # ── Sibling repos panel ─────────────────────────────────────────────
+        parent_dir    = Path(git_ops.working_dir).parent
+        sibling_repos: list[str] = []
         try:
             for p in parent_dir.iterdir():
-                if p.is_dir() and p != Path(git_ops.working_dir):
-                    if (p / ".git").exists():
-                        sibling_repos.append(p.name)
+                if p.is_dir() and p != Path(git_ops.working_dir) and (p / ".git").exists():
+                    sibling_repos.append(p.name)
         except Exception:
             pass
 
         sibling_panel = None
         if sibling_repos:
-            sibling_table = Table.grid(padding=1)
-            sibling_table.add_column(style="bold #B388FF")
-            sibling_table.add_column(style="white")
-            
-            for idx, r_name in enumerate(sibling_repos[:4], 1):
-                sib_branch = "unknown"
+            rt = Table.grid(padding=(0, 2))
+            rt.add_column(style="bold #B388FF", min_width=14)
+            rt.add_column(style="dim #9E9E9E")
+            for r_name in sibling_repos[:5]:
+                sib_branch = "?"
                 try:
-                    import git
-                    s_repo = git.Repo(parent_dir / r_name)
-                    sib_branch = s_repo.active_branch.name
+                    import git as _git
+                    sib_branch = _git.Repo(parent_dir / r_name).active_branch.name
                 except Exception:
                     pass
-                sibling_table.add_row(f"  📂 {r_name} ", f" ({sib_branch})")
-                
-            if len(sibling_repos) > 4:
-                sibling_table.add_row("  ... ", f" ({len(sibling_repos) - 4} more)")
-                
-            sibling_panel = Panel(sibling_table, title="[bold]Workspace Repos[/bold]", border_style="#B388FF", expand=False)
+                rt.add_row(r_name, sib_branch)
+            if len(sibling_repos) > 5:
+                rt.add_row(f"  +{len(sibling_repos) - 5} more", "")
+            sibling_panel = Panel(
+                rt,
+                title="[bold white]Workspace Repos[/bold white]",
+                border_style="#B388FF",
+                box=box.ROUNDED,
+                expand=False,
+                padding=(0, 1),
+            )
 
         panels = [status_panel, changes_panel]
         if sibling_panel:
             panels.append(sibling_panel)
-            
         console.print(Columns(panels))
-        
-        # 4. Detailed changes (if any)
+        console.print()
+
+        # ── Staged / Unstaged file lists ────────────────────────────────────
         if status["staged"]:
-            t = Table(title="Staged Files (to be committed)", show_header=False, box=None)
+            t = Table(show_header=False, box=None, padding=(0, 2))
+            t.add_column()
             for f in status["staged"]:
-                t.add_row(f"[green]  staged: {f}[/green]")
-            console.print(t)
-            
+                t.add_row(Text.assemble(("+ ", "bold #00E676"), (f, "#BDBDBD")))
+            console.print(Panel(t, title="[bold #00E676]Staged[/bold #00E676]",
+                                border_style="#00E676", box=box.SIMPLE, expand=False))
+            console.print()
+
         if status["unstaged"]:
-            t = Table(title="Unstaged Changes", show_header=False, box=None)
+            t = Table(show_header=False, box=None, padding=(0, 2))
+            t.add_column()
             for f in status["unstaged"]:
-                t.add_row(f"[red]  modified: {f}[/red]")
-            console.print(t)
-            
+                t.add_row(Text.assemble(("~ ", "bold #FFD600"), (f, "#BDBDBD")))
+            console.print(Panel(t, title="[bold #FFD600]Unstaged[/bold #FFD600]",
+                                border_style="#FFD600", box=box.SIMPLE, expand=False))
+            console.print()
+
         if status["untracked"]:
-            t = Table(title="Untracked Files", show_header=False, box=None)
+            t = Table(show_header=False, box=None, padding=(0, 2))
+            t.add_column()
             for f in status["untracked"]:
-                t.add_row(f"[dim]  untracked: {f}[/dim]")
-            console.print(t)
-            
-        # 5. Recent Commits Panel
+                t.add_row(Text.assemble(("? ", "dim #9E9E9E"), (f, "dim #9E9E9E")))
+            console.print(Panel(t, title="[dim]Untracked[/dim]",
+                                border_style="#555555", box=box.SIMPLE, expand=False))
+            console.print()
+
+        # ── Recent commits ──────────────────────────────────────────────────
         if commits:
-            commit_table = Table(show_header=True, header_style="bold green", box=None)
-            commit_table.add_column("Hash", style="dim", width=8)
-            commit_table.add_column("Message")
-            commit_table.add_column("Author", style="cyan")
+            commit_table = Table(
+                show_header=True,
+                header_style="bold #9E9E9E",
+                box=box.SIMPLE_HEAD,
+                show_edge=False,
+                padding=(0, 2),
+            )
+            commit_table.add_column("Hash",    style="#666666",   width=8,  no_wrap=True)
+            commit_table.add_column("Message", style="white",     ratio=4)
+            commit_table.add_column("Author",  style="#B388FF",   ratio=2)
             for c in commits:
                 commit_table.add_row(c["hexsha"][:7], c["summary"], c["author"])
-            console.print(Panel(commit_table, title="[bold]Recent Commits[/bold]", border_style="dim"))
+            console.print(
+                Panel(commit_table, title="[bold white]Recent Commits[/bold white]",
+                      border_style="#444444", box=box.ROUNDED, expand=False)
+            )
         else:
-            console.print("[dim]No commit history yet.[/dim]")
-            
-        menu_table = Table(show_header=False, box=None, padding=(0, 2))
-        menu_table.add_column(style="bold cyan", justify="right")
-        menu_table.add_column(style="white")
-        menu_table.add_column(style="bold cyan", justify="right")
-        menu_table.add_column(style="white")
-        
-        menu_table.add_row("\[c]", "AI Commit", "\[r]", "AI Code Review")
-        menu_table.add_row("\[u]", "AI Smart Undo", "\[p]", "Plan Git Command (AI)")
-        menu_table.add_row("\[s]", "Repo Stats", "\[w]", "Switch Repo")
-        menu_table.add_row("\[q]", "Quit Dashboard", "", "")
-        
-        console.print(Panel(menu_table, title="[bold white]Available Actions[/bold white]", border_style="orange3", expand=False))
+            console.print("[dim]  No commit history yet.[/dim]")
         console.print()
-        
-        # Get user input using instant single keypress
-        console.print("[bold orange3]Press a key to select action...[/bold orange3] ", end="")
+
+        # ── Action menu ─────────────────────────────────────────────────────
+        menu = Table(show_header=False, box=None, padding=(0, 3), expand=False)
+        menu.add_column(style="bold #00D5FF", justify="right", width=4)
+        menu.add_column(style="#BDBDBD", width=20)
+        menu.add_column(style="bold #00D5FF", justify="right", width=4)
+        menu.add_column(style="#BDBDBD")
+
+        menu.add_row("[c]", "AI Commit",          "[r]", "AI Code Review")
+        menu.add_row("[u]", "Smart Undo",          "[p]", "Plan Command (AI)")
+        menu.add_row("[s]", "Repo Stats",          "[w]", "Switch Repo")
+        menu.add_row("[q]", "Quit",                "",    "")
+
+        console.print(
+            Panel(menu, title="[bold white]Actions[/bold white]",
+                  border_style="#FF6D00", box=box.ROUNDED, expand=False)
+        )
+        console.print()
+        console.print("[bold #FF6D00]  Press a key ...[/bold #FF6D00]  ", end="")
+
+        # ── Key input ───────────────────────────────────────────────────────
         while True:
             choice = click.getchar().lower().strip()
-            if choice == "\r" or choice == "\n" or not choice:
+            if choice in ("\r", "\n", ""):
                 choice = "q"
                 break
             if choice in ("c", "r", "u", "p", "s", "w", "q"):
                 break
-        console.print(choice)
+
+        console.print(f"[dim]{choice}[/dim]")
         console.print()
-        
+
+        # ── Handle choice ───────────────────────────────────────────────────
         if choice == "q":
-            console.print("[yellow]Exiting dashboard.[/yellow]")
+            console.print("[dim]  Exiting dashboard.[/dim]")
             break
+
         elif choice == "c":
-            # Run commit command from cli
             from ace.cli import commit_cmd
             try:
                 commit_cmd(offline=offline)
             except Exception as e:
-                console.print(f"[red]Error running commit: {e}[/red]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+                console.print(f"[error]  Error: {e}[/error]")
+
         elif choice == "r":
-            # Run review command from cli
             from ace.cli import review_cmd
             try:
                 review_cmd(all_changes=True, offline=offline)
             except Exception as e:
-                console.print(f"[red]Error running code review: {e}[/red]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+                console.print(f"[error]  Error: {e}[/error]")
+
         elif choice == "u":
-            # Run undo command from cli
             from ace.cli import undo_cmd
             try:
                 undo_cmd(offline=offline)
             except Exception as e:
-                console.print(f"[red]Error running undo: {e}[/red]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+                console.print(f"[error]  Error: {e}[/error]")
+
         elif choice == "s":
-            # Run stats command from cli
             from ace.cli import stats_cmd
             try:
                 stats_cmd()
             except Exception as e:
-                console.print(f"[red]Error running stats: {e}[/red]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+                console.print(f"[error]  Error: {e}[/error]")
+
         elif choice == "w":
-            # Switch repository
-            from ace.ui.prompts import prompt_select
-            sibling_repos_all = []
-            try:
-                for p in parent_dir.iterdir():
-                    if p.is_dir() and (p / ".git").exists():
-                        sibling_repos_all.append(p.name)
-            except Exception:
-                pass
-            sibling_repos_all.sort()
-            
-            if not sibling_repos_all:
-                console.print("[yellow]No other repositories found in the parent directory.[/yellow]")
-            else:
-                console.print("[bold]Available repositories in workspace:[/bold]")
-                current_name = Path(git_ops.working_dir).name
-                display_options = []
-                for name in sibling_repos_all:
-                    if name == current_name:
-                        display_options.append(f"{name} [bold green](current)[/bold green]")
-                    else:
-                        display_options.append(name)
-                
-                sel_idx = prompt_select(display_options, prompt_text="Enter repository number to switch to", default="s")
-                if sel_idx >= 0:
-                    selected_repo_name = sibling_repos_all[sel_idx]
-                    new_path = parent_dir / selected_repo_name
-                    try:
-                        from ace.core.git_ops import GitOps as NewGitOps
-                        git_ops = NewGitOps(str(new_path))
-                        console.print(f"[green]Switched workspace to repository: [bold]{selected_repo_name}[/bold][/green]")
-                    except Exception as e:
-                        console.print(f"[red]Failed to switch repository: {e}[/red]")
-                else:
-                    console.print("[yellow]Switch cancelled.[/yellow]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+            _handle_switch_repo(git_ops, parent_dir)
+
         elif choice == "p":
-            query = typer.prompt("What do you want to do with Git? (e.g. 'undo my last commit')")
-            if query.strip():
-                from ace.ai.intent_parser import IntentParser
-                from ace.core.safety import SafetyChecker
-                from ace.ui.display import show_plan
-                from ace.ui.prompts import confirm as ui_confirm
-                
-                console.print(f"🧠 Understanding request: [italic]\"{query}\"[/italic]...")
-                parser = IntentParser(git_ops)
-                try:
-                    with spinner("Planning Git commands..."):
-                        parsed = parser.parse_intent(query, offline=offline)
-                    commands = parsed.get("commands", [])
-                    explanation = parsed.get("explanation", "")
-                    
-                    if not commands:
-                        console.print(f"[yellow]No commands planned. Explanation:[/yellow] {explanation}")
-                    else:
-                        show_plan(commands, [explanation] + [""] * (len(commands) - 1))
-                        
-                        # Safety checks
-                        highest_risk = "safe"
-                        risk_details = []
-                        for cmd in commands:
-                            r_level, r_desc, _ = SafetyChecker.analyze_command(cmd)
-                            if r_level == "destructive":
-                                highest_risk = "destructive"
-                                risk_details.append(f"Command: {cmd}\nRisk: {r_desc}")
-                            elif r_level == "moderate" and highest_risk != "destructive":
-                                highest_risk = "moderate"
-                                
-                        execute_plan = True
-                        if highest_risk == "destructive":
-                            show_warning_panel("\n\n".join(risk_details), "⚠️ DESTRUCTIVE OPERATION DETECTED")
-                            execute_plan = ui_confirm("Are you sure you want to execute these destructive commands?", default=False)
-                        elif highest_risk == "moderate":
-                            execute_plan = ui_confirm("Do you want to execute this plan?", default=True)
-                            
-                        if execute_plan:
-                            for cmd in commands:
-                                console.print(f"Executing: [bold]{cmd}[/bold]")
-                                git_args = cmd[4:] if cmd.startswith("git ") else cmd
-                                res = git_ops.execute(git_args)
-                                if res.strip():
-                                    console.print(res)
-                            console.print("[green]Plan executed successfully![/green]")
-                        else:
-                            console.print("[yellow]Plan aborted.[/yellow]")
-                except Exception as e:
-                    console.print(f"[red]Error planning commands: {e}[/red]")
-            console.print("\n[dim]Press any key to return to dashboard...[/dim]")
-            click.getchar()
+            _handle_plan_command(git_ops, offline)
+
+        console.print()
+        console.print("[dim]  Press any key to return ...[/dim]  ", end="")
+        click.getchar()
+
+
+# ─── Action handlers ──────────────────────────────────────────────────────────
+
+def _handle_switch_repo(git_ops: GitOps, parent_dir: Path) -> None:
+    """Interactive repository switcher."""
+    from ace.ui.prompts import prompt_select
+
+    all_repos: list[str] = []
+    try:
+        all_repos = sorted(
+            p.name for p in parent_dir.iterdir()
+            if p.is_dir() and (p / ".git").exists()
+        )
+    except Exception:
+        pass
+
+    if not all_repos:
+        print_warning("No other repositories found in the parent directory.")
+        return
+
+    current_name = Path(git_ops.working_dir).name
+    display_options = [
+        f"{name}  [bold #00E676](current)[/bold #00E676]" if name == current_name else name
+        for name in all_repos
+    ]
+
+    console.print("[bold white]  Repositories in workspace:[/bold white]")
+    sel_idx = prompt_select(display_options, prompt_text="  Repository number", default="s")
+    if sel_idx < 0:
+        console.print("[dim]  Switch cancelled.[/dim]")
+        return
+
+    selected = all_repos[sel_idx]
+    new_path  = parent_dir / selected
+    try:
+        from ace.core.git_ops import GitOps as _GitOps
+        git_ops.__dict__.update(_GitOps(str(new_path)).__dict__)
+        print_success(f"Switched to  {selected}")
+    except Exception as e:
+        console.print(f"[error]  Failed to switch: {e}[/error]")
+
+
+def _handle_plan_command(git_ops: GitOps, offline: bool) -> None:
+    """AI natural-language command planner."""
+    from ace.ai.intent_parser import IntentParser
+    from ace.core.safety import SafetyChecker
+    from ace.ui.display import show_plan
+    from ace.ui.prompts import confirm as ui_confirm
+
+    query = typer.prompt("  What do you want to do with Git?")
+    if not query.strip():
+        return
+
+    parser = IntentParser(git_ops)
+    try:
+        with spinner("Planning commands..."):
+            parsed = parser.parse_intent(query, offline=offline)
+
+        commands    = parsed.get("commands", [])
+        explanation = parsed.get("explanation", "")
+
+        if not commands:
+            console.print(f"[dim]  No commands planned.[/dim]  {explanation}")
+            return
+
+        show_plan(commands, [explanation] + [""] * (len(commands) - 1))
+
+        # Safety classification
+        highest_risk  = "safe"
+        risk_details: list[str] = []
+        for cmd in commands:
+            r_level, r_desc, _ = SafetyChecker.analyze_command(cmd)
+            if r_level == "destructive":
+                highest_risk = "destructive"
+                risk_details.append(f"[bold]{cmd}[/bold]\n{r_desc}")
+            elif r_level == "moderate" and highest_risk != "destructive":
+                highest_risk = "moderate"
+
+        execute = True
+        if highest_risk == "destructive":
+            show_warning_panel("\n\n".join(risk_details), "Destructive Operation Detected")
+            execute = ui_confirm("Execute these destructive commands?", default=False)
+        elif highest_risk == "moderate":
+            execute = ui_confirm("Execute this plan?", default=True)
+
+        if execute:
+            for cmd in commands:
+                console.print(
+                    Text.assemble(
+                        ("  › ", "bold #00D5FF"),
+                        ("Running  ", "#9E9E9E"),
+                        (cmd, "bold white"),
+                    )
+                )
+                git_args = cmd[4:] if cmd.startswith("git ") else cmd
+                result   = git_ops.execute(git_args)
+                if result.strip():
+                    console.print(f"[dim]{result}[/dim]")
+            print_success("Plan executed successfully.")
+        else:
+            console.print("[dim]  Plan aborted.[/dim]")
+
+    except Exception as e:
+        console.print(f"[error]  Error: {e}[/error]")

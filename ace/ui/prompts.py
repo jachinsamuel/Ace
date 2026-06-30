@@ -3,78 +3,85 @@ from typing import Dict, Tuple
 from rich.text import Text
 from ace.ui.display import console
 
+
 def confirm(question: str, default: bool = True) -> bool:
     """
-    Prompt the user for a yes/no confirmation.
-    
+    Prompt the user for a yes/no confirmation with a styled inline prompt.
+
     Returns True if confirmed, False otherwise.
     """
-    suffix = " [Y/n]" if default else " [y/N]"
-    prompt = f" ❔ [bold white]{question}[/bold white] [bold #00D5FF]{suffix}[/bold #00D5FF] "
-    
-    # Render with rich, but prompt using click
-    console.print(prompt, end="")
+    hint = "[Y/n]" if default else "[y/N]"
+    console.print(
+        Text.assemble(
+            ("  › ", "bold #00D5FF"),
+            (question + "  ", "bold white"),
+            (hint, "bold #666666"),
+            ("  ", ""),
+        ),
+        end="",
+    )
     val = click.getchar()
-    console.print()  # Add newline after char entry
-    
+    console.print()  # newline after keypress
+
     val = val.lower().strip()
     if val in ("y", "yes"):
         return True
     if val in ("n", "no"):
         return False
-    if val == "\r" or val == "\n" or not val:
+    if val in ("\r", "\n", ""):
         return default
     return default
 
+
 def prompt_action(options: Dict[str, Tuple[str, str]], default_key: str = "\r") -> str:
     """
-    Prompt the user to select from a set of actions using single-key inputs.
-    
-    options: dict mapping key character to a tuple (label, description)
-             e.g., {"\r": ("Accept", "Accept the suggestion"), "e": ("Edit", "Edit the content")}
-    default_key: key returned if user presses Enter
-    
-    Returns the selected key character.
+    Display a one-key action menu and return the pressed key.
+
+    options: dict mapping key character → (label, description)
+             e.g., {"\r": ("Accept", "accept the suggestion"), "e": ("Edit", "edit inline")}
     """
-    text = Text()
-    text.append("  ⌨️   ")
+    parts: list = [("  ", "")]
     for idx, (key, (label, _)) in enumerate(options.items()):
         if idx > 0:
-            text.append("  •  ", style="dim")
-        
-        display_key = "Enter" if key == "\r" else key
-        text.append(f"[{display_key}]", style="bold #00D5FF")
-        text.append(f" {label}", style="#E0E0E0")
-        
-    console.print(text)
-    
+            parts.append(("  ·  ", "dim #555555"))
+        display_key = "Enter" if key == "\r" else key.upper()
+        parts.append((f"[{display_key}]", "bold #00D5FF"))
+        parts.append((f" {label}", "#BDBDBD"))
+
+    console.print(Text.assemble(*parts))
+
     while True:
         char = click.getchar()
-        # Handle Windows carriage return
-        if char == "\r" or char == "\n":
+        # Normalise Windows CRLF
+        if char in ("\r", "\n"):
             char = "\r"
-            
         char_lower = char.lower()
-        
-        # Check direct match or lowercase match
+
         if char in options:
             return char
         if char_lower in options:
             return char_lower
-            
-        # If enter pressed and default exists
         if char == "\r" and default_key in options:
             return default_key
-            
-        # Invalid option, try again silently or with a brief indicator
-        pass
+
 
 def prompt_select(options: list, prompt_text: str = "Choose option", default: str = "s") -> int:
-    """Prompt the user to select an item from a numbered list of choices."""
-    for idx, opt in enumerate(options, 1):
-        console.print(f"  [bold #00D5FF][{idx}][/bold #00D5FF] {opt}")
+    """
+    Prompt the user to select from a numbered list.
+
+    Returns the zero-based index of the selected item, or -1 to skip.
+    """
     console.print()
-    
+    for idx, opt in enumerate(options, 1):
+        console.print(
+            Text.assemble(
+                (f"  [{idx}]", "bold #00D5FF"),
+                ("  ", ""),
+                (opt, "white"),
+            )
+        )
+    console.print()
+
     while True:
         choice = click.prompt(prompt_text, default=default)
         choice_clean = choice.strip().lower()
@@ -86,4 +93,11 @@ def prompt_select(options: list, prompt_text: str = "Choose option", default: st
                 return val - 1
         except ValueError:
             pass
-        console.print(" [error]✖ Invalid choice. Try again or enter 's' to skip.[/error]")
+        console.print(
+            Text.assemble(
+                ("  ✕ ", "bold #FF1744"),
+                ("Invalid choice — enter a number or ", "#BDBDBD"),
+                ("s", "bold #00D5FF"),
+                (" to skip.", "#BDBDBD"),
+            )
+        )

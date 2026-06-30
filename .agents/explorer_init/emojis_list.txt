@@ -1,0 +1,52 @@
+  ace\cli.py:109 -> ['🧠'] in line: console.print(f"🧠 Understanding request: [italic]\"{query}\"[/italic]...")
+  ace\cli.py:163 -> ['⚠'] in line: "⚠️ DESTRUCTIVE OPERATION DETECTED"
+  ace\cli.py:425 -> ['🚀'] in line: console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup![/bold orange3] 🚀\n")
+  ace\cli.py:657 -> ['🔀'] in line: console.print(f"\n[bold yellow]🔀 Merge conflicts found in {len(conflicts)} file(s):[/bold yellow]")
+  ace\cli.py:696 -> ['🧠'] in line: console.print("[bold orange3]🧠 AI Suggestion:[/bold orange3] Keep incoming/HEAD or merged?")
+  ace\cli.py:926 -> ['🩺'] in line: title="🩺 Git Diagnostics Status Report",
+  ace\cli.py:993 -> ['🩺'] in line: title="[bold white]🩺 AI Diagnostics & Recovery Report[/bold white]",
+  ace\cli.py:1132 -> ['⚠'] in line: "⚠️ DESTRUCTIVE UNDO OPERATION DETECTED"
+  ace\cli.py:1392 -> ['🚀'] in line: console.print("[bold orange3]Ace AI Git Copilot — Help & User Guide[/bold orange3] 🚀")
+  ace\cli.py:1404 -> ['🗣'] in line: console.print(Panel(nl_text, title="🗣️  Natural Language Interface", border_style="orange3", expand=False))
+  ace\cli.py:1436 -> ['💡'] in line: "💡 [bold orange3]Tips & Tricks:[/bold orange3]\n"
+  ace\cli.py:1528 -> ['🧠'] in line: title="🧠 Proposed Commit Squash Plan",
+  ace\ai\llm_factory.py:49 -> ['⚠'] in line: console.print(f"\n[warning]⚠️  Ollama model [bold]{model_name}[/bold] is not downloaded locally.[/warning]")
+  ace\ai\llm_factory.py:61 -> ['✅'] in line: console.print(f"[success]✅ Successfully downloaded '{model_name}'![/success]\n")
+  ace\ai\llm_factory.py:65 -> ['❌'] in line: console.print(f"[error]❌ Failed to pull model: {e}[/error]")
+  ace\ai\prompts\changelog.py:12 -> ['✨'] in line: - **✨ Features** (New features added)
+  ace\ai\prompts\changelog.py:13 -> ['🐛'] in line: - **🐛 Bug Fixes** (Bugs or issues resolved)
+  ace\ai\prompts\changelog.py:14 -> ['⚡'] in line: - **⚡ Performance Improvements** (Performance tuning changes)
+  ace\ai\prompts\changelog.py:15 -> ['📝'] in line: - **📝 Documentation** (Doc additions/updates)
+  ace\ai\prompts\changelog.py:16 -> ['🔧'] in line: - **🔧 Maintenance & Internal** (Chores, refactors, dependencies, internal cleanups)
+  ace\ai\prompts\doctor.py:10 -> ['🩺'] in line: 1. 🩺 **Diagnostics Assessment**: A brief explanation of the problems found.
+  ace\ai\prompts\doctor.py:11 -> ['📋'] in line: 2. 📋 **Recovery Plan**: A step-by-step guide with instructions and standard code blocks (e.g. `git restore` or `git stash`) to resolve the issues.
+  ace\ai\prompts\doctor.py:12 -> ['💡'] in line: 3. 💡 **Prevention Tip**: A short advice block on how to prevent this state in the future.
+  ace\ai\prompts\review.py:7 -> ['🐛'] in line: 1. 🐛 **Bugs**: Logic errors, edge cases, off-by-one errors, null pointer risks, exception handling flaws.
+  ace\ai\prompts\review.py:8 -> ['🔒'] in line: 2. 🔒 **Security**: Hardcoded credentials, SQL injection, unsafe deserialization, sensitive data leakage, insecure cryptographic operations.
+  ace\ai\prompts\review.py:9 -> ['⚡'] in line: 3. ⚡ **Performance**: Slow database queries (N+1 queries), redundant operations in loops, memory leaks, missing indexes, thread safety issues.
+  ace\ai\prompts\review.py:10 -> ['📝'] in line: 4. 📝 **Style**: Inconsistent formatting, naming convention violations, code duplication, missing documentation.
+  ace\ai\prompts\review.py:11 -> ['🧪'] in line: 5. 🧪 **Tests**: Missing test coverage or poor assertions.
+  ace\ai\prompts\review.py:12 -> ['💡'] in line: 6. 💡 **Suggestions**: Refactoring recommendations, simpler algorithms, using modern library features.
+  ace\core\hooks.py:17 -> ['🧠'] in line: echo "🧠 Running Ace pre-commit code review..."
+  ace\core\hooks.py:20 -> ['❌'] in line: echo "❌ Ace Code Review detected critical issues. Commit aborted."
+  ace\core\hooks.py:39 -> ['🧠'] in line: echo "🧠 Ace is drafting commit message..."
+  ace\ui\dashboard.py:29 -> ['🚀'] in line: console.print("[bold orange3]🚀 Ace AI Git Copilot Interactive Dashboard[/bold orange3]\n")
+  ace\ui\dashboard.py:95 -> ['📂'] in line: sibling_table.add_row(f"  📂 {r_name} ", f" ({sib_branch})")
+  ace\ui\dashboard.py:250 -> ['🧠'] in line: console.print(f"🧠 Understanding request: [italic]\"{query}\"[/italic]...")
+  ace\ui\dashboard.py:276 -> ['⚠'] in line: show_warning_panel("\n\n".join(risk_details), "⚠️ DESTRUCTIVE OPERATION DETECTED")
+  ace\ui\display.py:17 -> ['⚡'] in line: console.print(f" [info]⚡ {message}[/info]")
+  ace\ui\display.py:21 -> ['✔'] in line: console.print(f" [success]✔ {message}[/success]")
+  ace\ui\display.py:25 -> ['⚠'] in line: console.print(f" [warning]⚠️  {message}[/warning]")
+  ace\ui\display.py:29 -> ['✖'] in line: console.print(f" [error]✖ {message}[/error]", file=sys.stderr)
+  ace\ui\display.py:35 -> ['⚠'] in line: title=f"⚠️  {title}",
+  ace\ui\display.py:45 -> ['❌'] in line: title=f"❌ {title}",
+  ace\ui\display.py:64 -> ['🧠'] in line: title="[bold white]🧠 Proposed Execution Plan[/bold white]",
+  ace\ui\display.py:123 -> ['📝'] in line: title="[bold white]📝 Suggested Commit Message[/bold white]",
+  ace\ui\display.py:146 -> ['🔍'] in line: console.print(f"\n[bold]🔍 AI Code Review Score: [ai]{score}/10[/ai][/bold]\n")
+  ace\ui\display.py:149 -> ['✅'] in line: console.print("[success]✅ No issues found! Excellent work.[/success]")
+  ace\ui\display.py:154 -> ['🚨'] in line: "critical": "🚨",
+  ace\ui\display.py:155 -> ['⚠'] in line: "warning": "⚠️",
+  ace\ui\display.py:156 -> ['💡'] in line: "info": "💡"
+  ace\ui\display.py:166 -> ['💡'] in line: emoji = sev_emoji.get(sev, "💡")
+  ace\ui\prompts.py:13 -> ['❔'] in line: prompt = f" ❔ [bold white]{question}[/bold white] [bold #00D5FF]{suffix}[/bold #00D5FF] "
+  ace\ui\prompts.py:89 -> ['✖'] in line: console.print(" [error]✖ Invalid choice. Try again or enter 's' to skip.[/error]")

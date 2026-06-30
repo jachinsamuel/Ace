@@ -2,11 +2,7 @@ import sys
 from contextlib import contextmanager
 from typing import List, Dict, Any
 from rich.console import Console
-from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.text import Text
-from rich.table import Table
-from rich import box
 from ace.ui.themes import get_rich_theme
 
 # Initialize global Rich console with the application theme
@@ -14,22 +10,23 @@ console = Console(theme=get_rich_theme())
 
 def print_info(message: str) -> None:
     """Print an informational message."""
-    console.print(f" [info]⚡ {message}[/info]")
+    console.print(f" [info]INFO {message}[/info]")
 
 def print_success(message: str) -> None:
     """Print a success message."""
-    console.print(f" [success]✔ {message}[/success]")
+    console.print(f" [success]SUCCESS {message}[/success]")
 
 def print_warning(message: str) -> None:
     """Print a warning message."""
-    console.print(f" [warning]⚠️  {message}[/warning]")
+    console.print(f" [warning]WARNING {message}[/warning]")
 
 def print_error(message: str) -> None:
     """Print an error message."""
-    console.print(f" [error]✖ {message}[/error]", file=sys.stderr)
+    console.print(f" [error]ERROR {message}[/error]", file=sys.stderr)
 
 def show_warning_panel(message: str, title: str = "WARNING") -> None:
     """Show a yellow warning panel with a title."""
+    from rich.panel import Panel
     panel = Panel(
         Text.from_markup(message),
         title=f"⚠️  {title}",
@@ -40,6 +37,7 @@ def show_warning_panel(message: str, title: str = "WARNING") -> None:
 
 def show_error_panel(message: str, title: str = "ERROR") -> None:
     """Show a red error panel with a title."""
+    from rich.panel import Panel
     panel = Panel(
         Text.from_markup(message),
         title=f"❌ {title}",
@@ -56,6 +54,8 @@ def spinner(message: str = "Thinking..."):
 
 def show_plan(commands: List[str], explanations: List[str]) -> None:
     """Display the execution plan table with commands and descriptions."""
+    from rich.table import Table
+    from rich import box
     table = Table(
         show_header=True,
         header_style="bold #FF6D00",
@@ -85,6 +85,8 @@ def show_plan(commands: List[str], explanations: List[str]) -> None:
 
 def show_commit_message(message: str) -> None:
     """Display a suggested commit message in a clear panel with length warning indicators."""
+    from rich.panel import Panel
+    from rich import box
     lines = message.splitlines()
     subject = lines[0] if lines else ""
     body = "\n".join(lines[1:]) if len(lines) > 1 else ""
@@ -134,6 +136,7 @@ def show_commit_message(message: str) -> None:
 
 def show_diff(diff_text: str) -> None:
     """Render a syntax-highlighted git diff."""
+    from rich.syntax import Syntax
     if not diff_text.strip():
         console.print("[dim]No changes to display.[/dim]")
         return
@@ -143,6 +146,8 @@ def show_diff(diff_text: str) -> None:
 
 def show_review(findings: List[Dict[str, Any]], score: float) -> None:
     """Display aggregated AI code review findings."""
+    from rich.syntax import Syntax
+    from rich.panel import Panel
     console.print(f"\n[bold]🔍 AI Code Review Score: [ai]{score}/10[/ai][/bold]\n")
     
     if not findings:

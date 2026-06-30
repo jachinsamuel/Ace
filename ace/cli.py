@@ -10,16 +10,7 @@ try:
 except AttributeError:
     pass
 
-from rich.table import Table
-from rich.panel import Panel
-from rich import box
 from ace import __version__
-from ace.core.config import get_config, save_config, DEFAULT_CONFIG_PATH
-from ace.core.git_ops import GitOps, NotAGitRepositoryError
-from ace.ai.commit_generator import CommitGenerator, NoStagedChangesError
-from ace.ai.llm_factory import get_llm, LLMConfigurationError
-from ace.ai.intent_parser import IntentParser
-from ace.core.safety import SafetyChecker
 from ace.ui.display import (
     console,
     print_info,
@@ -30,7 +21,6 @@ from ace.ui.display import (
     show_commit_message,
     spinner,
 )
-from ace.ui.prompts import confirm, prompt_action
 
 from typer.core import TyperGroup
 
@@ -88,6 +78,12 @@ def main(
         None, "--version", callback=version_callback, is_eager=True, help="Show the version and exit."
     ),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.intent_parser import IntentParser
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
+    from ace.core.safety import SafetyChecker
+    from ace.ui.prompts import confirm
+
     if ctx.invoked_subcommand is not None:
         # A subcommand was invoked, let it execute
         return
@@ -241,6 +237,12 @@ def commit_cmd(
     ),
     prepare: Optional[str] = typer.Option(None, "--prepare", help="Path to commit message template file (hook mode)"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.core.config import get_config
+    from ace.ai.commit_generator import CommitGenerator, NoStagedChangesError
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
+    from ace.ui.prompts import confirm, prompt_action
+
     if not isinstance(format_override, str):
         format_override = None
     if not isinstance(prepare, str):
@@ -415,6 +417,8 @@ def commit_cmd(
 def setup_cmd():
     import click
     from ace.ui.banner import animate_fire_banner
+    from ace.core.config import get_config, save_config, DEFAULT_CONFIG_PATH
+    from ace.ui.prompts import confirm
     
     click.clear()
     try:
@@ -518,6 +522,9 @@ def setup_cmd():
 
 @app.command(name="config", help="View the current active configuration.")
 def config_cmd():
+    from ace.core.config import get_config, DEFAULT_CONFIG_PATH
+    from rich.table import Table
+
     config = get_config()
     
     table = Table(title="Ace Active Configuration", show_header=True, header_style="bold orange3")
@@ -563,6 +570,9 @@ def review_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
     strict: bool = typer.Option(False, "--strict", help="Fail with exit code 1 if critical issues are found"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
+
     if not isinstance(file, str):
         file = None
     if not isinstance(all_changes, bool):
@@ -643,6 +653,11 @@ def review_cmd(
 def resolve_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from ace.ui.prompts import confirm, prompt_action
+    from rich.panel import Panel
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -750,6 +765,9 @@ def changelog_cmd(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="File to write the generated changelog to"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -788,6 +806,11 @@ def changelog_cmd(
 
 @app.command(name="stats", help="Show contribution statistics and repository overview.")
 def stats_cmd():
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from rich.table import Table
+    from rich import box
+    from rich.panel import Panel
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -894,6 +917,12 @@ def stats_cmd():
 def doctor_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich import box
+
     if not isinstance(offline, bool):
         offline = False
 
@@ -1007,6 +1036,7 @@ def explain_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
     from ace.ai.prompts.explain import EXPLAIN_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
     from langchain_core.messages import SystemMessage, HumanMessage
     from rich.markdown import Markdown
 
@@ -1038,6 +1068,11 @@ def explain_cmd(
 def undo_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm, LLMConfigurationError
+    from ace.core.safety import SafetyChecker
+    from ace.ui.prompts import confirm
+
     if not isinstance(offline, bool):
         offline = False
 
@@ -1162,6 +1197,8 @@ def undo_cmd(
 def dash_cmd(
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -1183,6 +1220,9 @@ def pr_cmd(
         output = None
     if not isinstance(offline, bool):
         offline = False
+
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from rich.panel import Panel
 
     try:
         git_ops = GitOps()
@@ -1241,6 +1281,10 @@ def search_cmd(
     limit: int = typer.Option(50, "--limit", "-l", help="Number of recent commits to search"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from rich.table import Table
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -1329,6 +1373,11 @@ def ignore_cmd(
     query: str = typer.Argument(..., help="What to ignore (e.g. 'node_modules', 'temp files')"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from ace.ui.prompts import confirm
+    from rich.panel import Panel
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -1445,6 +1494,8 @@ def help_cmd():
 def add_cmd(
     files: List[str] = typer.Argument(..., help="Files or patterns to stage (use '.' to stage all changes)"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
@@ -1477,6 +1528,12 @@ def squash_cmd(
         base = None
     if not isinstance(offline, bool):
         offline = False
+
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from ace.ui.prompts import confirm
+    from rich.table import Table
+    from rich import box
 
     try:
         git_ops = GitOps()
@@ -1578,6 +1635,8 @@ def squash_cmd(
 def hook_cmd(
     action: str = typer.Argument(..., help="Action to perform: 'install' or 'uninstall'"),
 ):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:

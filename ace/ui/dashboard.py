@@ -199,16 +199,18 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         console.print()
 
         # ── Action menu ─────────────────────────────────────────────────────
-        menu = Table(show_header=False, box=None, padding=(0, 3), expand=False)
-        menu.add_column(style="bold #00D5FF", justify="right", width=4)
-        menu.add_column(style="#BDBDBD", width=20)
-        menu.add_column(style="bold #00D5FF", justify="right", width=4)
-        menu.add_column(style="#BDBDBD")
+        menu = Table(show_header=False, box=None, padding=(0, 4), expand=False)
+        menu.add_column(min_width=22)
+        menu.add_column(min_width=22)
 
-        menu.add_row("[c]", "AI Commit",          "[r]", "AI Code Review")
-        menu.add_row("[u]", "Smart Undo",          "[p]", "Plan Command (AI)")
-        menu.add_row("[s]", "Repo Stats",          "[w]", "Switch Repo")
-        menu.add_row("[q]", "Quit",                "",    "")
+
+        def _row(key: str, label: str) -> Text:
+            return Text.assemble((f"[{key}]", "bold #00D5FF"), (f"  {label}", "#BDBDBD"))
+
+        menu.add_row(_row("c", "AI Commit"),    _row("r", "AI Code Review"))
+        menu.add_row(_row("u", "Smart Undo"),   _row("p", "Plan Command (AI)"))
+        menu.add_row(_row("s", "Repo Stats"),   _row("w", "Switch Repo"))
+        menu.add_row(_row("q", "Quit"),         Text(""))
 
         console.print(
             Panel(menu, title="[bold white]Actions[/bold white]",

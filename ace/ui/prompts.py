@@ -13,7 +13,7 @@ def confirm(question: str, default: bool = True) -> bool:
     hint = "[Y/n]" if default else "[y/N]"
     console.print(
         Text.assemble(
-            ("  › ", "bold #00D5FF"),
+            ("  >> ", "bold #00D5FF"),
             (question + "  ", "bold white"),
             (hint, "bold #666666"),
             ("  ", ""),

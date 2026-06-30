@@ -160,3 +160,32 @@ The dashboard features:
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
+
+---
+
+## Changelog
+
+### v0.3.1 — Patch (2026-06-30)
+*   Fixed invisible key labels (`[c]`, `[r]`, etc.) in the dashboard and search menus caused by Rich markup tag conflicts.
+*   Fixed `[Y/n]` confirmation prompt rendering invisibly.
+
+### v0.3.0 — UI Polish (2026-06-30)
+*   Rewrote all UI output modules (`display.py`, `prompts.py`, `dashboard.py`, `themes.py`) for a polished, professional look.
+*   Removed all unprofessional emojis; replaced with clean ASCII status symbols (`>>`, `**`, `!!`, `EE`).
+*   Dashboard panels now use consistent `ROUNDED` borders, colour-coded file lists (`+` staged, `~` unstaged, `?` untracked), and a styled commit history table.
+*   Execution plan table uses `SIMPLE_HEAD` style with colour-highlighted `git` and `ace` command prefixes.
+*   Commit message panel shows character count badge coloured green/amber/red relative to the 72-char limit.
+*   AI code review score rendered as a styled badge based on score range.
+*   Added `[tool.ruff]` configuration to exclude `.agents/` scratch folder from lint checks.
+
+### v0.2.9 — Metadata & Build Fix (2026-06-30)
+*   Fixed broken `pyproject.toml` TOML syntax (invalid inline `urls` table).
+*   Added full `authors` and `[project.urls]` metadata visible on PyPI.
+
+### v0.2.6 — Startup Optimisation (2026-06-21)
+*   Implemented lazy-loading for all heavy LangChain imports — CLI startup under 200 ms.
+*   Added `ace switch` command for switching between sibling repositories from the dashboard.
+
+### v0.2.3 — Feature Expansion (2026-06-09)
+*   Added `ace doctor`, `ace hook`, and `ace squash` commands.
+*   Comprehensive E2E test suite added under `tests/e2e/`.

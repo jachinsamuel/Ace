@@ -1335,10 +1335,16 @@ def search_cmd(
             
             # Show options
             console.print("\n[bold]Select action:[/bold]")
-            console.print("  [bold cyan][d][/bold cyan] -> View diff of this commit")
-            console.print("  [bold cyan][c][/bold cyan] -> Checkout this commit (detached HEAD)")
-            console.print("  [bold cyan][b][/bold cyan] -> Create and switch to new branch at this commit")
-            console.print("  [bold cyan][s][/bold cyan] -> Skip/Quit")
+            def _key(k: str, desc: str) -> None:
+                from rich.text import Text
+                console.print(Text.assemble(
+                    ("  ", ""), (f"[{k}]", "bold #00D5FF"), (f"  {desc}", "#BDBDBD")
+                ))
+            _key("d", "View diff of this commit")
+            _key("c", "Checkout this commit (detached HEAD)")
+            _key("b", "Create and switch to a new branch here")
+            _key("s", "Skip / Quit")
+
             
             action = click.getchar().lower().strip()
             console.print(action)

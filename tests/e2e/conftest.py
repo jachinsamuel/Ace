@@ -13,8 +13,19 @@ class MockLLMHandler(BaseHTTPRequestHandler):
         # Suppress request logging to keep output clean
         pass
 
+    def do_GET(self):
+        if self.path == "/api/tags":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"models": [{"name": "qwen2.5-coder:7b"}]}).encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
     def do_POST(self):
-        if self.path == "/v1/chat/completions":
+        is_ollama = (self.path == "/api/chat")
+        if self.path == "/v1/chat/completions" or is_ollama:
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             payload = json.loads(post_data.decode('utf-8'))
@@ -69,7 +80,14 @@ class MockLLMHandler(BaseHTTPRequestHandler):
                         "risk_level": "destructive",
                         "alternatives": "git stash"
                     })
-                elif "invalid" in query_val or "unrelated" in query_val:
+                elif "config" in query_val:
+                    response_content = json.dumps({
+                        "commands": ["ace config"],
+                        "explanation": "Show active configuration.",
+                        "risk_level": "safe",
+                        "alternatives": None
+                    })
+                elif "invalid" in query_val or "unrelated" in query_val or "coffee" in query_val or "make me" in query_val:
                     response_content = json.dumps({
                         "commands": [],
                         "explanation": "I cannot parse this command.",
@@ -109,6 +127,10 @@ class MockLLMHandler(BaseHTTPRequestHandler):
                         "alternatives": None
                     })
             
+            # 3. Changelog Generator
+            elif "release coordinator and technical writer" in full_text or "Markdown changelog from the provided Git commit log" in full_text or "changelog" in full_text.lower():
+                response_content = "# Changelog\n\n## [1.0.0]\n\n### ✨ Features\n- Add mock feature\n\n### 🐛 Bug Fixes\n- Fix mock bug"
+            
             # 2. Commit Message Generator
             elif "Conventional Commits" in full_text or "commit message" in full_text or "Staged Diff" in full_text:
                 if "one-line commit message" in full_text or "SIMPLE_COMMIT_SYSTEM_PROMPT" in full_text:
@@ -117,10 +139,6 @@ class MockLLMHandler(BaseHTTPRequestHandler):
                     response_content = "Add mock feature\n\nThis is a detailed description of the mock feature."
                 else:
                     response_content = "feat(mock): add mock feature\n\n- Implement mock feature details\n- Add mock feature tests"
-            
-            # 3. Changelog Generator
-            elif "release coordinator and technical writer" in full_text or "Markdown changelog from the provided Git commit log" in full_text:
-                response_content = "# Changelog\n\n## [1.0.0]\n\n### ✨ Features\n- Add mock feature\n\n### 🐛 Bug Fixes\n- Fix mock bug"
             
             # 4. PR Drafter
             elif "PR_SYSTEM_PROMPT" in full_text or "Pull Request (PR) description" in full_text:
@@ -134,54 +152,64 @@ class MockLLMHandler(BaseHTTPRequestHandler):
                 response_content = "🩺 **Diagnostics Assessment**\n\nFound some issues.\n\n📋 **Recovery Plan**\n\n- Run git clean\n- Run git restore\n\n💡 **Prevention Tip**\n\nCommit more often."
             
             # 6. Smart Undo
-            elif "UNDO_SYSTEM_PROMPT" in full_text or "reflog_entries" in full_text:
-                if "test_staged.txt" in full_text or "staged_files" in full_text and "None" not in full_text:
-                    response_content = json.dumps({
-                        "commands": ["git restore --staged ."],
-                        "explanation": "Unstage changes.",
-                        "risk_level": "moderate",
-                        "alternatives": None
-                    })
-                elif "destructive" in full_text or "hard" in full_text:
-                    response_content = json.dumps({
-                        "commands": ["git reset --hard ORIG_HEAD"],
-                        "explanation": "Destructively undo merge.",
-                        "risk_level": "destructive",
-                        "alternatives": "git stash"
-                    })
-                elif "nothing" in full_text or "clean" in full_text:
+            elif "Active Operations:" in full_text or "recent Git reflog" in full_text:
+                if "No reflog available" in full_text or ("Staged Changes:\nNone" in full_text and "Unstaged Changes:\nNone" in full_text):
                     response_content = json.dumps({
                         "commands": [],
                         "explanation": "Nothing to undo.",
                         "risk_level": "safe",
                         "alternatives": None
                     })
-                else:
+                elif "test_staged.txt" in full_text or "test.txt" in full_text:
+                    response_content = json.dumps({
+                        "commands": ["git restore --staged ."],
+                        "explanation": "Unstage changes.",
+                        "risk_level": "moderate",
+                        "alternatives": None
+                    })
+                elif "update commit" in full_text:
                     response_content = json.dumps({
                         "commands": ["git reset --soft HEAD~1"],
                         "explanation": "Undo last commit.",
                         "risk_level": "moderate",
                         "alternatives": None
                     })
+                else:
+                    response_content = json.dumps({
+                        "commands": ["git reset --hard ORIG_HEAD"],
+                        "explanation": "Destructively undo merge.",
+                        "risk_level": "destructive",
+                        "alternatives": "git stash"
+                    })
             
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             
-            response_payload = {
-                "id": "chatcmpl-mock",
-                "object": "chat.completion",
-                "created": 1677652288,
-                "model": "mock-model",
-                "choices": [{
-                    "index": 0,
+            if is_ollama:
+                response_payload = {
+                    "model": "qwen2.5-coder:7b",
                     "message": {
                         "role": "assistant",
                         "content": response_content
                     },
-                    "finish_reason": "stop"
-                }]
-            }
+                    "done": True
+                }
+            else:
+                response_payload = {
+                    "id": "chatcmpl-mock",
+                    "object": "chat.completion",
+                    "created": 1677652288,
+                    "model": "mock-model",
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": response_content
+                        },
+                        "finish_reason": "stop"
+                    }]
+                }
             self.wfile.write(json.dumps(response_payload).encode('utf-8'))
         else:
             self.send_response(404)
@@ -232,13 +260,14 @@ def git_workspace(tmp_path, mock_llm_port):
             cmd = [
                 sys.executable,
                 "-c",
-                "import sys, click; click.getchar = lambda: sys.stdin.read(1); from ace.cli import app; app()",
+                "import sys, click, getpass; click.getchar = lambda: sys.stdin.read(1); getpass.getpass = lambda prompt='', stream=None: sys.stdin.readline().rstrip('\\r\\n'); from ace.cli import app; app()",
             ] + args
             env = os.environ.copy()
             env["ACE_PROVIDER"] = "custom"
             env["CUSTOM_API_BASE"] = f"http://127.0.0.1:{self.port}/v1"
             env["CUSTOM_API_KEY"] = "mock-key"
             env["CUSTOM_MODEL"] = "mock-model"
+            env["OLLAMA_URL"] = f"http://127.0.0.1:{self.port}"
             env["HOME"] = str(self.home)
             env["USERPROFILE"] = str(self.home)
             

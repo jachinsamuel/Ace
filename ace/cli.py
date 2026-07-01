@@ -138,9 +138,9 @@ def main(
         r_level, r_desc, alt = SafetyChecker.analyze_command(cmd)
         if r_level == "destructive":
             highest_risk = "destructive"
-            risk_details.append(f"[bold red]Command:[/bold] {cmd}\n[bold red]Risk:[/bold] {r_desc}")
+            risk_details.append(f"[bold red]Command:[/] {cmd}\n[bold red]Risk:[/] {r_desc}")
             if alt:
-                safer_alts.append(f"[bold green]Safer Alternative:[/bold] {alt}")
+                safer_alts.append(f"[bold green]Safer Alternative:[/] {alt}")
         elif r_level == "moderate" and highest_risk != "destructive":
             highest_risk = "moderate"
 
@@ -191,8 +191,19 @@ def main(
                     raise typer.Exit(code=1)
             else:
                 try:
-                    res = git_ops.execute(cmd)
-                    outputs.append(res)
+                    import subprocess
+                    import sys
+                    args = cmd.split()[1:]
+                    res_proc = subprocess.run(
+                        [sys.executable, "-c", "from ace.cli import app; app()"] + args,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        encoding="utf-8"
+                    )
+                    if res_proc.returncode != 0:
+                        raise Exception(res_proc.stderr or res_proc.stdout)
+                    outputs.append(res_proc.stdout)
                 except Exception as e:
                     show_error_panel(f"Failed to execute command '{cmd}': {e}", "Execution Error")
                     raise typer.Exit(code=1)
@@ -207,7 +218,7 @@ def main(
 
     # Summarization flow for read-only history queries
     combined_output = "\n".join(outputs)
-    if highest_risk == "safe" and combined_output.strip():
+    if highest_risk == "safe" and combined_output.strip() and not any(c.startswith("ace ") for c in commands):
         from ace.ai.history_analyzer import HistoryAnalyzer
         from rich.markdown import Markdown
         analyzer = HistoryAnalyzer(git_ops)
@@ -270,6 +281,8 @@ def commit_cmd(
             with open(prepare, "w", encoding="utf-8") as f:
                 f.write(msg)
             raise typer.Exit(code=0)
+        except (typer.Exit, typer.Abort):
+            raise
         except NoStagedChangesError:
             raise typer.Exit(code=0)
         except Exception as e:
@@ -785,7 +798,8 @@ def changelog_cmd(
         show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
         raise typer.Exit(code=1)
     except Exception as e:
-        show_error_panel(f"Failed to generate changelog: {e}", "AI Error")
+        title = "Git Error" if "ChangelogGeneratorError" in str(type(e)) or "Cmd('git')" in str(e) or "Invalid starting revision" in str(e) or "Invalid ending revision" in str(e) else "AI Error"
+        show_error_panel(f"Failed to generate changelog: {e}", title)
         raise typer.Exit(code=1)
 
     # Show or write to file
@@ -1154,9 +1168,9 @@ def undo_cmd(
         r_level, r_desc, alt = SafetyChecker.analyze_command(cmd)
         if r_level == "destructive":
             highest_risk = "destructive"
-            risk_details.append(f"[bold red]Command:[/bold] {cmd}\n[bold red]Risk:[/bold] {r_desc}")
+            risk_details.append(f"[bold red]Command:[/] {cmd}\n[bold red]Risk:[/] {r_desc}")
             if alt:
-                safer_alts.append(f"[bold green]Safer Alternative:[/bold] {alt}")
+                safer_alts.append(f"[bold green]Safer Alternative:[/] {alt}")
         elif r_level == "moderate" and highest_risk != "destructive":
             highest_risk = "moderate"
 
@@ -1251,7 +1265,8 @@ def pr_cmd(
         with spinner(f"Generating PR description against base branch '{base}'..."):
             pr_data = drafter.draft_pr(base, offline=offline)
     except Exception as e:
-        show_error_panel(f"Failed to generate PR description: {e}", "AI Error")
+        title = "Git Error" if "Cmd('git')" in str(e) or "git log" in str(e) or "exit code" in str(e) else "AI Error"
+        show_error_panel(f"Failed to generate PR description: {e}", title)
         raise typer.Exit(code=1)
 
     title = pr_data.get("title", "Pull Request")

@@ -29,8 +29,13 @@ class CommitGenerator:
             raise NoStagedChangesError("No changes are staged for commit. Stage files first using 'git add'.")
 
         staged_diff = self.git_ops.get_staged_diff()
-        if not staged_diff.strip():
-            # Sometimes status has staged but diff is empty (e.g. only file permissions or empty files)
+        has_content_changes = False
+        for line in staged_diff.splitlines():
+            if (line.startswith("+") and not line.startswith("+++")) or (line.startswith("-") and not line.startswith("---")):
+                has_content_changes = True
+                break
+
+        if not has_content_changes:
             raise NoStagedChangesError("Staged diff is empty. Cannot generate commit message.")
 
         # Format context

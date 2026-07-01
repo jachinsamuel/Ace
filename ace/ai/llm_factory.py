@@ -43,10 +43,11 @@ def ensure_ollama_model(base_url: str, model_name: str) -> None:
         return
 
     # 2. Prompt user and pull model
-    from ace.ui.display import console, spinner
+    from ace.ui.display import console, spinner, print_warning, print_success, print_error, print_info
     from ace.ui.prompts import confirm
     
-    console.print(f"\n[warning]⚠️  Ollama model [bold]{model_name}[/bold] is not downloaded locally.[/warning]")
+    console.print()
+    print_warning(f"Ollama model '{model_name}' is not downloaded locally.")
     if confirm(f"Would you like Ace to automatically pull '{model_name}' from the Ollama registry?", default=True):
         try:
             url = f"{base_url.rstrip('/')}/api/pull"
@@ -58,12 +59,12 @@ def ensure_ollama_model(base_url: str, model_name: str) -> None:
                 with urllib.request.urlopen(req) as response:
                     res_data = json.loads(response.read().decode("utf-8"))
                     if res_data.get("status") == "success" or "success" in str(res_data):
-                        console.print(f"[success]✅ Successfully downloaded '{model_name}'![/success]\n")
+                        print_success(f"Successfully downloaded '{model_name}'!\n")
                     else:
-                        console.print(f"[info]Ollama response: {res_data}[/info]\n")
+                        print_info(f"Ollama response: {res_data}\n")
         except Exception as e:
-            console.print(f"[error]❌ Failed to pull model: {e}[/error]")
-            console.print(f"[info]Please run 'ollama pull {model_name}' manually in your shell.[/info]\n")
+            print_error(f"Failed to pull model: {e}")
+            print_info(f"Please run 'ollama pull {model_name}' manually in your shell.\n")
 
 def get_llm(offline_override: bool = False) -> BaseChatModel:
     """

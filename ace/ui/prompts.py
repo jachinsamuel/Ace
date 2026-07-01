@@ -30,7 +30,8 @@ def confirm(question: str, default: bool = True) -> bool:
         return False
     if val in ("\r", "\n", ""):
         return default
-    return default
+    # Default to False for safety on unrecognized inputs
+    return False
 
 
 def prompt_action(options: Dict[str, Tuple[str, str]], default_key: str = "\r") -> str:

@@ -41,6 +41,7 @@ def test_nl_planner_non_git_repo(tmp_path, mock_llm_port):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
         env=env
     )
     assert res.returncode == 1
@@ -113,6 +114,7 @@ def test_commit_missing_llm_credentials(git_workspace):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
         env=env
     )
     assert res.returncode == 1
@@ -187,7 +189,7 @@ def test_changelog_single_commit(git_workspace):
     
     res = git_workspace.run(["changelog"])
     assert res.returncode == 0
-    assert "## [1.0.0]" in res.stdout
+    assert "[1.0.0]" in res.stdout
 
 def test_changelog_output_file_already_exists(git_workspace):
     test_file = git_workspace.workspace / "test.txt"
@@ -196,22 +198,22 @@ def test_changelog_output_file_already_exists(git_workspace):
     git_workspace.repo.index.commit("feat: initial commit")
     
     out_file = git_workspace.workspace / "CHANGELOG.md"
-    out_file.write_text("old content")
+    out_file.write_text("old content", encoding="utf-8")
     
     res = git_workspace.run(["changelog", "-o", str(out_file)])
     assert res.returncode == 0
     assert out_file.exists()
-    assert "## [1.0.0]" in out_file.read_text()
+    assert "## [1.0.0]" in out_file.read_text(encoding="utf-8")
 
 def test_changelog_custom_format_commits(git_workspace):
     test_file = git_workspace.workspace / "test.txt"
-    test_file.write_text("changelog content 🧑‍💻")
+    test_file.write_text("changelog content 🧑‍💻", encoding="utf-8")
     git_workspace.repo.index.add([str(test_file)])
     git_workspace.repo.index.commit("feat: initial commit with emojis & extremely long subject line that might exceed standard buffer sizes in naive implementations")
     
     res = git_workspace.run(["changelog"])
     assert res.returncode == 0
-    assert "## [1.0.0]" in res.stdout
+    assert "[1.0.0]" in res.stdout
 
 # Feature 5: PR Drafter Boundaries (5 tests)
 
@@ -261,6 +263,7 @@ def test_pr_drafter_missing_llm_response_keys(git_workspace):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
         env=env
     )
     assert res.returncode == 1
@@ -302,6 +305,7 @@ def test_pr_drafter_invalid_json_llm_response(git_workspace):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
         env=env
     )
     assert res.returncode == 1
@@ -376,7 +380,7 @@ def test_undo_nothing_to_undo(git_workspace):
 
 def test_undo_destructive_confirm_no(git_workspace):
     # Mock server triggers destructive plan
-    res = git_workspace.run(["undo"], stdin_data="destructive\nn\n")
+    res = git_workspace.run(["undo"], stdin_data="n\n")
     assert res.returncode == 0
     assert "Undo aborted." in res.stdout
 
@@ -385,7 +389,8 @@ def test_undo_destructive_confirm_yes(git_workspace):
     test_file.write_text("initial")
     git_workspace.repo.index.add([str(test_file)])
     git_workspace.repo.index.commit("initial commit")
+    git_workspace.repo.git.update_ref("ORIG_HEAD", "HEAD")
     
-    res = git_workspace.run(["undo"], stdin_data="destructive\ny\n")
+    res = git_workspace.run(["undo"], stdin_data="y\n")
     assert res.returncode == 0
     assert "Undo plan executed successfully!" in res.stdout

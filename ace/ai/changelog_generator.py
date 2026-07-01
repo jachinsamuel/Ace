@@ -18,6 +18,24 @@ class ChangelogGenerator:
         If from_ref is None, attempts to find the latest tag.
         If no latest tag exists, falls back to the last 30 commits.
         """
+        if from_ref:
+            try:
+                self.git_ops.execute(f"rev-parse --verify {from_ref}")
+            except Exception:
+                raise ChangelogGeneratorError(f"Invalid starting revision: {from_ref}")
+
+        if to_ref:
+            try:
+                self.git_ops.execute(f"rev-parse --verify {to_ref}")
+            except Exception:
+                raise ChangelogGeneratorError(f"Invalid ending revision: {to_ref}")
+
+        # Check if HEAD exists first
+        try:
+            self.git_ops.execute("rev-parse --verify HEAD")
+        except Exception:
+            return ""
+
         to_revision = to_ref or "HEAD"
         from_revision = from_ref
         

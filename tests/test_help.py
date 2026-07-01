@@ -21,7 +21,7 @@ def test_help_command():
     assert "dash" in result.stdout
     assert "Tips & Tricks" in result.stdout
 
-@patch("ace.cli.GitOps")
+@patch("ace.core.git_ops.GitOps")
 def test_review_cmd_programmatic_invocation(mock_git_ops_class):
     mock_git_ops = MagicMock()
     mock_git_ops.repo.git.diff.return_value = ""
@@ -35,7 +35,7 @@ def test_review_cmd_programmatic_invocation(mock_git_ops_class):
     except typer.Exit as e:
         assert e.exit_code == 0
 
-@patch("ace.cli.GitOps")
+@patch("ace.core.git_ops.GitOps")
 def test_commit_cmd_programmatic_invocation(mock_git_ops_class):
     mock_git_ops = MagicMock()
     mock_git_ops.get_status.return_value = {"staged": []}

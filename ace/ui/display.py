@@ -30,9 +30,65 @@ def print_warning(message: str) -> None:
     """Print a warning message."""
     console.print(f" [warning]{_SYM_WARNING}[/warning]  [warning]{message}[/warning]")
 
+def clean_error_message(message: str) -> str:
+    """Clean up common LLM API response dumps and traceback details into human-readable text."""
+    from rich.markup import escape
+
+    # Normalize/clean raw message string
+    msg_str = str(message).strip()
+
+    # Check for NVIDIA/OpenAI 504 gateway timeout
+    if "504" in msg_str or "Gateway Timeout" in msg_str:
+        return (
+            "API Server Error: [bold #FF1744]Gateway Timeout (504)[/bold #FF1744]\n\n"
+            "The cloud AI provider servers took too long to respond. This is a temporary server "
+            "overload. Please try again in a few moments, or run [bold]ace setup[/bold] to switch "
+            "to a local model (Ollama) or another provider."
+        )
+
+    # Check for authentication errors
+    if "AuthenticationError" in msg_str or "invalid api key" in msg_str.lower() or "401" in msg_str:
+        return (
+            "API Authentication Error: [bold #FF1744]Invalid API Key[/bold #FF1744]\n\n"
+            "Please check that your API key is correct and active. Run [bold]ace setup[/bold] to reconfigure."
+        )
+
+    # Check for rate limits
+    if "RateLimitError" in msg_str or "429" in msg_str or "rate limit exceeded" in msg_str.lower():
+        return (
+            "API Rate Limit Error: [bold #FF1744]Too Many Requests[/bold #FF1744]\n\n"
+            "You have hit the rate limit for this API provider. Please wait a moment before trying again."
+        )
+
+    # General Connection errors
+    if "ConnectionError" in msg_str or "Failed to establish a new connection" in msg_str or "timeout" in msg_str.lower():
+        return (
+            "API Connection Error: [bold #FF1744]Network Timeout[/bold #FF1744]\n\n"
+            "Could not connect to the AI API endpoint. Please check your internet connection and try again."
+        )
+
+    # If it's a raw dictionary dump of a response (like in NVIDIA / OpenAI SDK exception strings)
+    if "{'_content':" in msg_str or "'status_code':" in msg_str or "'_content_consumed':" in msg_str:
+        lines = msg_str.splitlines()
+        first_line = lines[0] if lines else ""
+        if "APIStatusError" in first_line:
+            first_line = first_line.split("APIStatusError:")[-1].strip()
+            
+        import re
+        status_match = re.search(r"'status_code':\s*(\d+)", msg_str)
+        reason_match = re.search(r"'reason':\s*'([^']+)'", msg_str)
+        if status_match and reason_match:
+            return f"API Error: [bold #FF1744]{escape(reason_match.group(1))} ({status_match.group(1)})[/bold #FF1744]"
+        elif status_match:
+            return f"API Error: [bold #FF1744]Status Code {status_match.group(1)}[/bold #FF1744]"
+        return escape(first_line) if first_line else "An unexpected API error occurred."
+
+    # If it's a generic exception or string, escape it to prevent Rich markup parsing errors
+    return escape(msg_str)
+
 def print_error(message: str) -> None:
     """Print an error message."""
-    err_console.print(f" [error]{_SYM_ERROR}[/error]  [error]{message}[/error]")
+    err_console.print(f" [error]{_SYM_ERROR}[/error]  [error]{clean_error_message(message)}[/error]")
 
 
 # ─── Panels ──────────────────────────────────────────────────────────────────
@@ -57,8 +113,11 @@ def show_error_panel(message: str, title: str = "Error") -> None:
     """Show a styled red error panel."""
     from rich.panel import Panel
     from rich import box
+    
+    cleaned_message = clean_error_message(message)
+    
     panel = Panel(
-        Text.from_markup(message),
+        Text.from_markup(cleaned_message),
         title=f"[bold #FF1744] {_SYM_ERROR} {title}[/bold #FF1744]",
         border_style="#FF1744",
         box=box.ROUNDED,

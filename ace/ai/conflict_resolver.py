@@ -83,10 +83,15 @@ class ConflictResolver:
 
     def apply_resolution(self, file_path: str, block_replacements: List[Tuple[str, str]]) -> None:
         """
-        Apply resolutions to a conflicted file.
+        Apply resolutions to a conflicted file safely.
         
         block_replacements: List of tuples (full_conflict_block, replacement_content)
         """
+        import shutil
+        import tempfile
+        import os
+        import time
+
         full_path = Path(self.git_ops.working_dir) / file_path
         if not full_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
@@ -95,13 +100,13 @@ class ConflictResolver:
         
         for full_block, replacement in block_replacements:
             if full_block in content:
-                content = content.replace(full_block, replacement)
+                content = content.replace(full_block, replacement, 1)
             else:
                 # Try with normalized line endings
                 norm_block = full_block.replace("\r\n", "\n")
                 norm_content = content.replace("\r\n", "\n")
                 if norm_block in norm_content:
-                    norm_content = norm_content.replace(norm_block, replacement)
+                    norm_content = norm_content.replace(norm_block, replacement, 1)
                     # Restore Windows line endings if they were originally present
                     if "\r\n" in content:
                         content = norm_content.replace("\n", "\r\n")
@@ -112,4 +117,30 @@ class ConflictResolver:
                         "Conflict block not found in file. Has it been edited already?"
                     )
 
-        full_path.write_text(content, encoding="utf-8")
+        # Create backup copy
+        backup_path = full_path.with_suffix(full_path.suffix + f".bak-{int(time.time())}")
+        try:
+            shutil.copy2(full_path, backup_path)
+        except Exception as e:
+            raise ConflictResolverError(f"Failed to create backup copy of {file_path}: {e}")
+
+        # Atomic replacement
+        try:
+            fd, temp_path_str = tempfile.mkstemp(dir=full_path.parent, prefix="resolved-", suffix=".tmp")
+            temp_path = Path(temp_path_str)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(temp_path, full_path)
+        except Exception as e:
+            # Restore from backup
+            try:
+                shutil.copy2(backup_path, full_path)
+            except Exception:
+                pass
+            raise ConflictResolverError(f"Failed to apply conflict resolution to {file_path}: {e}")
+        finally:
+            if backup_path.exists():
+                try:
+                    backup_path.unlink()
+                except Exception:
+                    pass

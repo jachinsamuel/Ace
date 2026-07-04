@@ -154,10 +154,19 @@ def get_config() -> Config:
     return Config(data)
 
 def save_config(config: Config) -> None:
-    """Save the current configuration back to ~/.ace/config.toml."""
+    """Save the current configuration back to ~/.ace/config.toml atomically."""
+    import tempfile
+    import os
     try:
         DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        with open(DEFAULT_CONFIG_PATH, "w", encoding="utf-8") as f:
-            toml.dump(config.to_dict(), f)
+        fd, temp_path = tempfile.mkstemp(dir=DEFAULT_CONFIG_DIR, prefix="config-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                toml.dump(config.to_dict(), f)
+            os.replace(temp_path, DEFAULT_CONFIG_PATH)
+        except Exception as e:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise e
     except Exception as e:
         raise IOError(f"Could not save configuration: {e}")

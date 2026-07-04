@@ -118,7 +118,13 @@ class GitOps:
     def get_branches(self, remote: bool = False) -> List[str]:
         """List local or remote branches."""
         if remote:
-            return [b.name for b in self.repo.remotes.origin.refs] if "origin" in self.repo.remotes else []
+            branches = []
+            for r in self.repo.remotes:
+                try:
+                    branches.extend([b.name for b in r.refs])
+                except Exception:
+                    pass
+            return branches
         return [b.name for b in self.repo.branches]
 
     def get_conflicts(self) -> List[str]:
@@ -153,14 +159,34 @@ class GitOps:
 
     def execute(self, command: str) -> str:
         """Run an arbitrary git command safely (the command string shouldn't include 'git ')."""
-        # Split command into parts
-        parts = command.strip().split()
+        import shlex
+        if not command.strip():
+            raise ValueError("Empty Git command provided.")
+            
+        try:
+            parts = shlex.split(command.strip())
+        except ValueError:
+            parts = command.strip().split()
+
         if parts and parts[0] == "git":
             parts = parts[1:]
-        
-        # Use git command runner directly
-        git_func = getattr(self.repo.git, parts[0].replace("-", "_"))
-        return git_func(*parts[1:])
+            
+        if not parts:
+            raise ValueError("Empty Git command provided.")
+
+        subcommand = parts[0]
+        args = parts[1:]
+
+        try:
+            git_func = getattr(self.repo.git, subcommand.replace("-", "_"))
+            return git_func(*args)
+        except AttributeError:
+            try:
+                return self.repo.git.execute(["git", subcommand] + args)
+            except Exception as e:
+                raise ValueError(f"Failed to execute Git command '{command}': {e}")
+        except Exception as e:
+            raise ValueError(f"Failed to execute Git command '{command}': {e}")
 
     def get_upstream_tracking(self) -> Optional[str]:
         """Get the remote tracking branch of the current branch, e.g. 'origin/main'."""

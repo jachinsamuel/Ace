@@ -193,9 +193,10 @@ def main(
                 try:
                     import subprocess
                     import sys
-                    args = cmd.split()[1:]
+                    import shlex
+                    args = shlex.split(cmd)[1:]
                     res_proc = subprocess.run(
-                        [sys.executable, "-c", "from ace.cli import app; app()"] + args,
+                        [sys.executable, "-m", "ace"] + args,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,

@@ -165,6 +165,18 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
 ## Changelog
 
+### v0.3.3 — Stability & Resilience (2026-07-04)
+*   Implemented streaming progress and download percentages for Ollama model pulls to prevent thread hangs.
+*   Added atomic file saves and rollback backups for merge conflict resolutions and config modifications to prevent data corruption.
+*   Fixed merge/rebase detection in git worktrees and submodules by resolving the authoritative `git_dir` dynamically.
+*   Added `shlex` command splitting to safely parse and execute quoted arguments in Git commands.
+*   Created python module entry point (`python -m ace`) for nested execution support.
+
+### v0.3.2 — Windows Compatibility & E2E Fixes (2026-07-01)
+*   Resolved Windows-specific UTF-8 encoding issues in E2E tests and log parsers.
+*   Fixed subprocess natural language command execution paths to execute nested ace commands through Python interpreter contexts.
+*   Refactored CLI error panel formatting to match expected exception names.
+
 ### v0.3.1 — Patch (2026-06-30)
 *   Fixed invisible key labels (`[c]`, `[r]`, etc.) in the dashboard and search menus caused by Rich markup tag conflicts.
 *   Fixed `[Y/n]` confirmation prompt rendering invisibly.

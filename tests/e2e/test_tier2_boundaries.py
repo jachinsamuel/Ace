@@ -379,6 +379,13 @@ def test_undo_nothing_to_undo(git_workspace):
     assert "Nothing to undo" in res.stdout
 
 def test_undo_destructive_confirm_no(git_workspace):
+    # Setup commit and ORIG_HEAD to trigger high risk undo
+    test_file = git_workspace.workspace / "test.txt"
+    test_file.write_text("initial")
+    git_workspace.repo.index.add([str(test_file)])
+    git_workspace.repo.index.commit("initial commit")
+    git_workspace.repo.git.update_ref("ORIG_HEAD", "HEAD")
+
     # Mock server triggers destructive plan
     res = git_workspace.run(["undo"], stdin_data="n\n")
     assert res.returncode == 0

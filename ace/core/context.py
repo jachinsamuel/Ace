@@ -61,7 +61,11 @@ class RepoContext:
 
     def check_merge_rebase_state(self) -> Dict[str, Any]:
         """Check if the repository is currently in a merge, rebase, or cherry-pick state."""
-        git_dir = Path(self.git_ops.working_dir) / ".git"
+        try:
+            git_dir = Path(self.git_ops.repo.git_dir)
+        except Exception:
+            git_dir = Path(self.git_ops.working_dir) / ".git"
+            
         state = {
             "in_progress": False,
             "type": None,  # 'merge', 'rebase', 'cherry-pick', 'revert'

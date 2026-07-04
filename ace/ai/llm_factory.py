@@ -51,17 +51,35 @@ def ensure_ollama_model(base_url: str, model_name: str) -> None:
     if confirm(f"Would you like Ace to automatically pull '{model_name}' from the Ollama registry?", default=True):
         try:
             url = f"{base_url.rstrip('/')}/api/pull"
-            payload = json.dumps({"name": model_name, "stream": False}).encode("utf-8")
+            payload = json.dumps({"name": model_name, "stream": True}).encode("utf-8")
             req = urllib.request.Request(url, data=payload, method="POST")
             req.add_header("Content-Type", "application/json")
             
-            with spinner(f"Downloading model '{model_name}' (this may take a few minutes)..."):
-                with urllib.request.urlopen(req) as response:
-                    res_data = json.loads(response.read().decode("utf-8"))
-                    if res_data.get("status") == "success" or "success" in str(res_data):
-                        print_success(f"Successfully downloaded '{model_name}'!\n")
-                    else:
-                        print_info(f"Ollama response: {res_data}\n")
+            with spinner(f"Initiating download of model '{model_name}'..."):
+                pass
+            
+            with urllib.request.urlopen(req, timeout=60) as response:
+                import sys
+                for line in response:
+                    if not line.strip():
+                        continue
+                    try:
+                        data = json.loads(line.decode("utf-8"))
+                        status = data.get("status", "")
+                        completed = data.get("completed", 0)
+                        total = data.get("total", 0)
+                        if total > 0:
+                            pct = (completed / total) * 100
+                            sys.stdout.write(f"\r\033[K[Ollama] {status} ({pct:.1f}%)")
+                            sys.stdout.flush()
+                        else:
+                            sys.stdout.write(f"\r\033[K[Ollama] {status}")
+                            sys.stdout.flush()
+                    except Exception:
+                        pass
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+            print_success(f"Successfully downloaded '{model_name}'!\n")
         except Exception as e:
             print_error(f"Failed to pull model: {e}")
             print_info(f"Please run 'ollama pull {model_name}' manually in your shell.\n")

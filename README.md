@@ -137,6 +137,7 @@ Ace has dedicated subcommands for specific tasks. Here is the complete command l
 | `ace squash` | — | Automatically analyze commit history and run AI-guided interactive rebases. |
 | `ace ignore <rule>` | — | Generate and append standard templates to `.gitignore`. |
 | `ace undo` | — | Safely revert the last action after checking repository status. |
+| `ace workspace` | `ace ws` | Monitor status of multiple repositories and navigate between them. |
 | `ace dash` | — | Launch the interactive repository management console (TUI). |
 | `ace config` | — | Print out active configuration settings. |
 | `ace help` | — | Show user guide and help information on how to use Ace. |
@@ -164,6 +165,11 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 ---
 
 ## Changelog
+
+### v0.3.4 — Workspace Management (2026-07-11)
+*   Added new `workspace` command (alias `ws`) to scan, monitor, and navigate multiple repositories.
+*   Shows active branch, staged/unstaged/untracked file counts, and local upstream sync offsets in a Rich Table.
+*   Supports interactive actions to open the TUI dashboard, spawn a nested shell, or run copy-paste commands inside any chosen repository.
 
 ### v0.3.3 — Stability & Resilience (2026-07-04)
 *   Implemented streaming progress and download percentages for Ollama model pulls to prevent thread hangs.

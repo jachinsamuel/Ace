@@ -1686,6 +1686,195 @@ def hook_cmd(
         show_error_panel("Invalid action. Use 'install' or 'uninstall'.", "Usage Error")
         raise typer.Exit(code=1)
 
+@app.command(name="workspace", help="Monitor status of multiple repositories and navigate between them.")
+def workspace_cmd(
+    path: Optional[str] = typer.Argument(
+        None, help="Custom directory to scan (defaults to sibling projects scan)"
+    ),
+):
+    from pathlib import Path
+    import os
+    import sys
+    import subprocess
+    from rich.table import Table
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ui.display import console, print_info, print_success, print_warning, print_error
+    from ace.ui.prompts import prompt_select, prompt_action
+
+    # 1. Determine target directory to scan
+    if path:
+        scan_dir = Path(path).resolve()
+    else:
+        # Smart default
+        cwd = Path(os.getcwd()).resolve()
+        if (cwd / ".git").exists():
+            scan_dir = cwd.parent
+        else:
+            scan_dir = cwd
+
+    if not scan_dir.exists() or not scan_dir.is_dir():
+        print_error(f"Directory not found: {scan_dir}")
+        raise typer.Exit(code=1)
+
+    print_info(f"Scanning workspace directory: [bold]{scan_dir}[/bold]")
+
+    # 2. Find git repositories
+    repos_found = []
+    try:
+        for child in sorted(scan_dir.iterdir()):
+            if not child.is_dir():
+                continue
+            # Basic validation that it's a git repo
+            if (child / ".git").exists() or (child / "gitdir").exists() or child.name.endswith(".git"):
+                try:
+                    git_ops = GitOps(str(child))
+                    repos_found.append((child, git_ops))
+                except Exception:
+                    pass
+    except Exception as e:
+        print_error(f"Failed to scan directory: {e}")
+        raise typer.Exit(code=1)
+
+    if not repos_found:
+        print_warning(f"No active Git repositories found in: {scan_dir}")
+        return
+
+    # 3. Build Status Table
+    table = Table(
+        title=f"[bold white]Workspace Summary: {scan_dir.name}[/bold white]",
+        title_style="bold",
+        border_style="#FF6D00",
+        expand=True,
+    )
+    table.add_column("[bold #00D5FF]#[/bold #00D5FF]", justify="right", width=4)
+    table.add_column("Repository", style="bold white")
+    table.add_column("Branch", style="bold cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Sync", justify="center")
+
+    display_options = []
+    for idx, (repo_path, git_ops) in enumerate(repos_found, 1):
+        repo_name = repo_path.name
+        
+        # Branch
+        branch_name = git_ops.get_current_branch() or "Detached HEAD"
+        
+        # Status counts
+        status = git_ops.get_status()
+        staged = len(status.get("staged", []))
+        unstaged = len(status.get("unstaged", []))
+        untracked = len(status.get("untracked", []))
+        
+        if staged == 0 and unstaged == 0 and untracked == 0:
+            status_desc = "[success]Clean[/success]"
+        else:
+            parts = []
+            if staged > 0:
+                parts.append(f"[bold #00E676]+{staged}[/bold #00E676]")
+            if unstaged > 0:
+                parts.append(f"[bold #FFD600]~{unstaged}[/bold #FFD600]")
+            if untracked > 0:
+                parts.append(f"[bold #FF1744]?{untracked}[/bold #FF1744]")
+            status_desc = " ".join(parts)
+
+        # Sync offsets
+        ab = git_ops.get_ahead_behind()
+        ahead = ab.get("ahead", 0)
+        behind = ab.get("behind", 0)
+        tracking = git_ops.get_upstream_tracking()
+        
+        if not tracking:
+            sync_desc = "[#666666]No Upstream[/#666666]"
+        elif ahead == 0 and behind == 0:
+            sync_desc = "[success]Up-to-date[/success]"
+        elif ahead > 0 and behind == 0:
+            sync_desc = f"[bold #00D5FF]Ahead {ahead}[/bold #00D5FF]"
+        elif behind > 0 and ahead == 0:
+            sync_desc = f"[bold #FFD600]Behind {behind}[/bold #FFD600]"
+        else:
+            sync_desc = f"[bold #FF1744]Diverged (A{ahead}, B{behind})[/bold #FF1744]"
+
+        table.add_row(
+            str(idx),
+            repo_name,
+            branch_name,
+            status_desc,
+            sync_desc
+        )
+        display_options.append(repo_name)
+
+    console.print()
+    console.print(table)
+    console.print()
+
+    # 4. Prompt selection
+    selected_idx = prompt_select(
+        display_options,
+        prompt_text="  Select repository number to manage (or 'q' to quit)",
+        default="q"
+    )
+    
+    if selected_idx < 0:
+        print_info("Exit workspace monitor.")
+        return
+
+    selected_path, _ = repos_found[selected_idx]
+
+    # 5. Prompt action choice
+    console.print(f"\n[bold white]  Choose action for [bold cyan]{selected_path.name}[/bold cyan]:[/bold white]")
+    action_options = {
+        "d": ("Dashboard", "Open interactive TUI dashboard"),
+        "s": ("Shell", "Spawn an interactive shell in project directory"),
+        "c": ("Command", "Execute an ace natural-language command"),
+        "q": ("Quit", "Cancel action and exit")
+    }
+    
+    action = prompt_action(action_options, default_key="d")
+    
+    if action == "d":
+        print_success(f"Launching dashboard in {selected_path.name}...")
+        console.print()
+        try:
+            subprocess.run([sys.executable, "-m", "ace", "dash"], cwd=str(selected_path))
+        except Exception as e:
+            print_error(f"Failed to launch dashboard: {e}")
+            
+    elif action == "s":
+        shell = os.environ.get("SHELL")
+        if not shell:
+            if sys.platform == "win32":
+                shell = "powershell.exe"
+            else:
+                shell = "/bin/bash"
+                
+        print_success(f"Opening interactive shell in {selected_path.name}...")
+        print_info("Type 'exit' to return to Ace workspace monitor.")
+        console.print()
+        
+        try:
+            subprocess.run([shell], cwd=str(selected_path))
+            print_success("Returned to Ace workspace.")
+        except Exception as e:
+            print_error(f"Failed to open shell: {e}")
+            
+    elif action == "c":
+        query = typer.prompt("  Enter command for this repo")
+        if query.strip():
+            print_success(f"Running command: {query}")
+            console.print()
+            try:
+                subprocess.run([sys.executable, "-m", "ace", query], cwd=str(selected_path))
+            except Exception as e:
+                print_error(f"Failed to run command: {e}")
+
+@app.command(name="ws", help="Alias for 'workspace' command.")
+def ws_cmd(
+    path: Optional[str] = typer.Argument(
+        None, help="Custom directory to scan"
+    ),
+):
+    workspace_cmd(path)
+
 if __name__ == "__main__":
     app()
 

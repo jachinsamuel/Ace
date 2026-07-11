@@ -166,6 +166,9 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
 ## Changelog
 
+### v0.3.5 — Empty Diff Handling (2026-07-11)
+*   Improved warning panel message and title when committing empty files or mode changes to prevent confusing users when files are already staged.
+
 ### v0.3.4 — Workspace Management (2026-07-11)
 *   Added new `workspace` command (alias `ws`) to scan, monitor, and navigate multiple repositories.
 *   Shows active branch, staged/unstaged/untracked file counts, and local upstream sync offsets in a Rich Table.

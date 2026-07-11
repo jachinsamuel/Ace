@@ -299,10 +299,22 @@ def commit_cmd(
                 with spinner("Analyzing changes and generating commit message..."):
                     msg = generator.generate_message(format_type=format_type, offline=offline)
             except NoStagedChangesError as e:
-                show_warning_panel(
-                    f"{str(e)}\n\n[bold]Tip:[/bold] Stage your files first: [command]git add <files>[/command]",
-                    "No Staged Changes"
-                )
+                staged_files = []
+                try:
+                    staged_files = git_ops.get_status().get("staged", [])
+                except Exception:
+                    pass
+
+                if staged_files:
+                    show_warning_panel(
+                        f"{str(e)}\n\n[bold]Tip:[/bold] Use [command]git commit -m \"message\"[/command] to commit these changes manually, or add content to the files.",
+                        "Empty Staged Diff"
+                    )
+                else:
+                    show_warning_panel(
+                        f"{str(e)}\n\n[bold]Tip:[/bold] Stage your files first: [command]git add <files>[/command]",
+                        "No Staged Changes"
+                    )
                 raise typer.Exit(code=0)
             except LLMConfigurationError as e:
                 show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")

@@ -166,6 +166,10 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
 ## Changelog
 
+### v0.3.6 — Merge/Rebase Conflict Planning Fix (2026-07-12)
+*   Enhanced repository context builder to check for active unmerged files in the index, distinguishing between resolved and unresolved conflict states.
+*   Updated AI intent guidelines to prevent the planner from incorrectly suggesting `git merge --abort` when conflicts are already resolved and ready to be finalized.
+
 ### v0.3.5 — Empty Diff Handling (2026-07-11)
 *   Improved warning panel message and title when committing empty files or mode changes to prevent confusing users when files are already staged.
 

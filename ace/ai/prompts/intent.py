@@ -26,6 +26,9 @@ You MUST return a JSON response containing exactly the following keys, and nothi
    - **moderate**: Standard modifications (commit, standard push, branch creation, switching branches, merge, rebase, stashing, soft/mixed reset).
    - **destructive**: Irreversible changes (hard reset, force push, git clean, force branch deletion).
 6. Always provide a safer alternative in `alternatives` if `risk_level` is moderate or destructive.
+7. If a merge, rebase, cherry-pick, or revert is in progress and the context indicates that conflicts are resolved (e.g., "Merge conflicts resolved. Ready to finalize merge."), do NOT abort the operation unless the user explicitly requests to abort. Instead, finalize/continue the operation:
+   - For a resolved merge, cherry-pick, or revert, use `git commit` or `ace commit` to finalize.
+   - For a resolved rebase, use `git rebase --continue` to continue.
 
 ### Examples:
 

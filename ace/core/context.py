@@ -75,22 +75,43 @@ class RepoContext:
         if not git_dir.exists():
             return state
 
+        # Check if index has unmerged (conflicted) files
+        has_conflicts = False
+        try:
+            unmerged = self.git_ops.repo.index.unmerged_files()
+            if unmerged:
+                has_conflicts = True
+        except Exception:
+            pass
+
         if (git_dir / "MERGE_HEAD").exists():
             state["in_progress"] = True
             state["type"] = "merge"
-            state["detail"] = "Merge conflict/resolution in progress."
+            if has_conflicts:
+                state["detail"] = "Merge conflicts exist. Need resolution."
+            else:
+                state["detail"] = "Merge conflicts resolved. Ready to finalize merge."
         elif (git_dir / "rebase-merge").exists() or (git_dir / "rebase-apply").exists():
             state["in_progress"] = True
             state["type"] = "rebase"
-            state["detail"] = "Rebase operation in progress."
+            if has_conflicts:
+                state["detail"] = "Rebase conflicts exist. Need resolution."
+            else:
+                state["detail"] = "Rebase conflicts resolved. Ready to continue rebase."
         elif (git_dir / "CHERRY_PICK_HEAD").exists():
             state["in_progress"] = True
             state["type"] = "cherry-pick"
-            state["detail"] = "Cherry-pick operation in progress."
+            if has_conflicts:
+                state["detail"] = "Cherry-pick conflicts exist. Need resolution."
+            else:
+                state["detail"] = "Cherry-pick conflicts resolved. Ready to finalize cherry-pick."
         elif (git_dir / "REVERT_HEAD").exists():
             state["in_progress"] = True
             state["type"] = "revert"
-            state["detail"] = "Revert operation in progress."
+            if has_conflicts:
+                state["detail"] = "Revert conflicts exist. Need resolution."
+            else:
+                state["detail"] = "Revert conflicts resolved. Ready to finalize revert."
 
         return state
 

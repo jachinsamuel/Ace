@@ -101,12 +101,13 @@ class GitOps:
             args.append(path)
             
         try:
+            from ace.utils.string_utils import strip_emojis
             commits = self.repo.iter_commits(*args, **kwargs)
             return [
                 {
                     "hexsha": commit.hexsha,
-                    "summary": commit.summary,
-                    "message": commit.message,
+                    "summary": strip_emojis(commit.summary),
+                    "message": strip_emojis(commit.message),
                     "author": commit.author.name,
                     "date": commit.committed_datetime.isoformat(),
                 }

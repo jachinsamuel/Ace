@@ -38,8 +38,9 @@ class HistoryAnalyzer:
             HumanMessage(content=user_prompt)
         ]
 
+        from ace.utils.string_utils import strip_emojis
         response = llm.invoke(messages)
-        return response.content.strip()
+        return strip_emojis(response.content.strip())
 
     def get_repo_stats(self) -> Dict[str, Any]:
         """

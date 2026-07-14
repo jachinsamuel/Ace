@@ -166,6 +166,10 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
 ## Changelog
 
+### v0.3.8 — Emoji Stripping from Git History (2026-07-14)
+*   Implemented automatic Unicode emoji stripping for all Git commit messages retrieved via `GitOps.get_log`.
+*   Ensured history query summaries, rebase lists, and dashboard commit tables are completely clean and emoji-free.
+
 ### v0.3.7 — UI Status Icons Modernization (2026-07-14)
 *   Replaced clunky double-character ASCII status indicators (`>>`, `**`, `!!`, `EE`) with clean, modern Unicode status icons (`›`, `✔`, `⚠`, `✘`).
 *   Updated confirm prompts, severity warnings, and code review listings to use the new icons for a clean, consistent terminal interface.

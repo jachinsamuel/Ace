@@ -20,6 +20,7 @@ class RebaseHelper:
         except Exception:
             return []
             
+        from ace.utils.string_utils import strip_emojis
         commits = []
         for line in log_data.splitlines():
             if "|" in line:
@@ -28,7 +29,7 @@ class RebaseHelper:
                     commits.append({
                         "hexsha": parts[0],
                         "author": parts[1],
-                        "summary": parts[2].strip()
+                        "summary": strip_emojis(parts[2].strip())
                     })
         return commits
 

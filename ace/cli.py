@@ -1898,36 +1898,66 @@ def standup_cmd(
     from ace.ai.history_analyzer import HistoryAnalyzer
     from rich.markdown import Markdown
     from rich.panel import Panel
+    import pathlib
 
+    current_dir = pathlib.Path(".")
+    repos_found = []
+
+    # 1. Try active repository in current folder
     try:
         git_ops = GitOps()
-    except NotAGitRepositoryError as e:
-        show_error_panel(str(e), "Git Error")
-        raise typer.Exit(code=1)
-
-    # 1. Resolve author filter
-    author_name = None
-    if not all_authors:
+        repos_found.append((current_dir.resolve().name, git_ops))
+    except NotAGitRepositoryError:
+        # Fallback: scan immediate subdirectories for sibling repositories
         try:
-            author_name = git_ops.repo.git.config("user.name")
+            for child in sorted(current_dir.iterdir()):
+                if child.is_dir() and ((child / ".git").exists() or (child / "gitdir").exists() or child.name.endswith(".git")):
+                    try:
+                        repos_found.append((child.name, GitOps(str(child))))
+                    except Exception:
+                        pass
         except Exception:
             pass
 
-    # 2. Get recent commits
-    since_arg = f"{days} days ago"
-    commits = git_ops.get_log(since=since_arg, author=author_name)
+    if not repos_found:
+        show_error_panel("Not a git repository (or any of the parent directories).", "Git Error")
+        raise typer.Exit(code=1)
 
-    if not commits:
+    # 2. Gather commits from all resolved repositories
+    all_commits = []
+    since_arg = f"{days} days ago"
+
+    # We need a primary git_ops instance to initialize HistoryAnalyzer
+    primary_git_ops = repos_found[0][1]
+
+    for repo_name, git_ops in repos_found:
+        author_name = None
+        if not all_authors:
+            try:
+                author_name = git_ops.repo.git.config("user.name")
+            except Exception:
+                pass
+        
+        try:
+            repo_commits = git_ops.get_log(since=since_arg, author=author_name)
+            for c in repo_commits:
+                c["repo_name"] = repo_name
+                all_commits.append(c)
+        except Exception:
+            pass
+
+    if not all_commits:
         author_msg = "your" if not all_authors else "any"
-        print_warning(f"No recent commits found from {author_msg} author in the last {days} day(s).")
+        scope_msg = "this repository" if len(repos_found) == 1 else f"{len(repos_found)} repositories in this directory"
+        print_warning(f"No recent commits found from {author_msg} author in {scope_msg} in the last {days} day(s).")
         raise typer.Exit(code=0)
 
-    analyzer = HistoryAnalyzer(git_ops)
+    analyzer = HistoryAnalyzer(primary_git_ops)
 
     try:
         get_llm(offline_override=offline)
-        with spinner(f"Analyzing {len(commits)} commits and generating standup..."):
-            standup_report = analyzer.generate_standup(commits, offline=offline)
+        with spinner(f"Analyzing {len(all_commits)} commits across {len(repos_found)} repo(s) and generating standup..."):
+            standup_report = analyzer.generate_standup(all_commits, offline=offline)
     except Exception as e:
         show_error_panel(f"Failed to generate standup: {e}", "AI Error")
         raise typer.Exit(code=1)

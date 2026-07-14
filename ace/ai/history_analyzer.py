@@ -196,7 +196,8 @@ class HistoryAnalyzer:
 
         commit_lines = []
         for c in commits:
-            commit_lines.append(f"- {c['hexsha'][:7]} - {c['summary']} (by {c['author']})")
+            repo_prefix = f"[{c['repo_name']}] " if "repo_name" in c else ""
+            commit_lines.append(f"- {repo_prefix}{c['hexsha'][:7]} - {c['summary']} (by {c['author']})")
         commit_list_text = "\n".join(commit_lines)
 
         from ace.ai.prompts.standup import STANDUP_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE

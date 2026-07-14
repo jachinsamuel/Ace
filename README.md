@@ -110,12 +110,14 @@ Allows using any custom endpoint that supports the OpenAI API schema (e.g. Groq,
 ## Usage
 
 ### Natural Language Mode
-Run natural language requests directly in quotes:
+
+You can speak to Git in plain English. There is no need to use double quotes — simply write your request directly:
 ```bash
-ace "stage everything and commit with a message about authentication"
-ace "undo my last commit but keep the files"
-ace "switch to a new branch called design-updates"
+ace stage everything and commit with a message about authentication
+ace undo my last commit but keep the files
+ace switch to a new branch called design-updates
 ```
+*(Double quotes are optional, e.g. `ace "stage everything and commit"`).*
 
 ### Command-Line Toolchain
 Ace has dedicated subcommands for specific tasks. Here is the complete command list:
@@ -161,64 +163,3 @@ The dashboard features:
 ## License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
-
----
-
-## Changelog
-
-### v0.3.8 — Emoji Stripping from Git History (2026-07-14)
-*   Implemented automatic Unicode emoji stripping for all Git commit messages retrieved via `GitOps.get_log`.
-*   Ensured history query summaries, rebase lists, and dashboard commit tables are completely clean and emoji-free.
-
-### v0.3.7 — UI Status Icons Modernization (2026-07-14)
-*   Replaced clunky double-character ASCII status indicators (`>>`, `**`, `!!`, `EE`) with clean, modern Unicode status icons (`›`, `✔`, `⚠`, `✘`).
-*   Updated confirm prompts, severity warnings, and code review listings to use the new icons for a clean, consistent terminal interface.
-
-### v0.3.6 — Merge/Rebase Conflict Planning Fix (2026-07-12)
-*   Enhanced repository context builder to check for active unmerged files in the index, distinguishing between resolved and unresolved conflict states.
-*   Updated AI intent guidelines to prevent the planner from incorrectly suggesting `git merge --abort` when conflicts are already resolved and ready to be finalized.
-
-### v0.3.5 — Empty Diff Handling (2026-07-11)
-*   Improved warning panel message and title when committing empty files or mode changes to prevent confusing users when files are already staged.
-
-### v0.3.4 — Workspace Management (2026-07-11)
-*   Added new `workspace` command (alias `ws`) to scan, monitor, and navigate multiple repositories.
-*   Shows active branch, staged/unstaged/untracked file counts, and local upstream sync offsets in a Rich Table.
-*   Supports interactive actions to open the TUI dashboard, spawn a nested shell, or run copy-paste commands inside any chosen repository.
-
-### v0.3.3 — Stability & Resilience (2026-07-04)
-*   Implemented streaming progress and download percentages for Ollama model pulls to prevent thread hangs.
-*   Added atomic file saves and rollback backups for merge conflict resolutions and config modifications to prevent data corruption.
-*   Fixed merge/rebase detection in git worktrees and submodules by resolving the authoritative `git_dir` dynamically.
-*   Added `shlex` command splitting to safely parse and execute quoted arguments in Git commands.
-*   Created python module entry point (`python -m ace`) for nested execution support.
-
-### v0.3.2 — Windows Compatibility & E2E Fixes (2026-07-01)
-*   Resolved Windows-specific UTF-8 encoding issues in E2E tests and log parsers.
-*   Fixed subprocess natural language command execution paths to execute nested ace commands through Python interpreter contexts.
-*   Refactored CLI error panel formatting to match expected exception names.
-
-### v0.3.1 — Patch (2026-06-30)
-*   Fixed invisible key labels (`[c]`, `[r]`, etc.) in the dashboard and search menus caused by Rich markup tag conflicts.
-*   Fixed `[Y/n]` confirmation prompt rendering invisibly.
-
-### v0.3.0 — UI Polish (2026-06-30)
-*   Rewrote all UI output modules (`display.py`, `prompts.py`, `dashboard.py`, `themes.py`) for a polished, professional look.
-*   Removed all unprofessional emojis; replaced with clean ASCII status symbols (`>>`, `**`, `!!`, `EE`).
-*   Dashboard panels now use consistent `ROUNDED` borders, colour-coded file lists (`+` staged, `~` unstaged, `?` untracked), and a styled commit history table.
-*   Execution plan table uses `SIMPLE_HEAD` style with colour-highlighted `git` and `ace` command prefixes.
-*   Commit message panel shows character count badge coloured green/amber/red relative to the 72-char limit.
-*   AI code review score rendered as a styled badge based on score range.
-*   Added `[tool.ruff]` configuration to exclude `.agents/` scratch folder from lint checks.
-
-### v0.2.9 — Metadata & Build Fix (2026-06-30)
-*   Fixed broken `pyproject.toml` TOML syntax (invalid inline `urls` table).
-*   Added full `authors` and `[project.urls]` metadata visible on PyPI.
-
-### v0.2.6 — Startup Optimisation (2026-06-21)
-*   Implemented lazy-loading for all heavy LangChain imports — CLI startup under 200 ms.
-*   Added `ace switch` command for switching between sibling repositories from the dashboard.
-
-### v0.2.3 — Feature Expansion (2026-06-09)
-*   Added `ace doctor`, `ace hook`, and `ace squash` commands.
-*   Comprehensive E2E test suite added under `tests/e2e/`.

@@ -166,6 +166,10 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more details.
 
 ## Changelog
 
+### v0.3.7 — UI Status Icons Modernization (2026-07-14)
+*   Replaced clunky double-character ASCII status indicators (`>>`, `**`, `!!`, `EE`) with clean, modern Unicode status icons (`›`, `✔`, `⚠`, `✘`).
+*   Updated confirm prompts, severity warnings, and code review listings to use the new icons for a clean, consistent terminal interface.
+
 ### v0.3.6 — Merge/Rebase Conflict Planning Fix (2026-07-12)
 *   Enhanced repository context builder to check for active unmerged files in the index, distinguishing between resolved and unresolved conflict states.
 *   Updated AI intent guidelines to prevent the planner from incorrectly suggesting `git merge --abort` when conflicts are already resolved and ready to be finalized.

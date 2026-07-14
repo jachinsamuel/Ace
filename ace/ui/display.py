@@ -10,10 +10,10 @@ console     = Console(theme=get_rich_theme(), force_terminal=True)
 err_console = Console(theme=get_rich_theme(), force_terminal=True, stderr=True)
 
 # Status symbols — safe subset that renders in all modern Windows terminals
-_SYM_INFO    = ">>"   # informational
-_SYM_SUCCESS = "**"   # success
-_SYM_WARNING = "!!"   # warning
-_SYM_ERROR   = "EE"   # error
+_SYM_INFO    = "›"   # informational
+_SYM_SUCCESS = "✔"   # success
+_SYM_WARNING = "⚠"   # warning
+_SYM_ERROR   = "✘"   # error
 
 
 # ─── Inline status printers ──────────────────────────────────────────────────
@@ -277,9 +277,9 @@ def show_review(findings: List[Dict[str, Any]], score: float) -> None:
         return
 
     sev_sym = {
-        "critical": ("EE", "bold #FF1744"),
-        "warning":  ("!!", "bold #FFD600"),
-        "info":     (">>", "bold #00D5FF"),
+        "critical": ("✘", "bold #FF1744"),
+        "warning":  ("⚠", "bold #FFD600"),
+        "info":     ("›", "bold #00D5FF"),
     }
 
     for item in findings:

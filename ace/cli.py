@@ -1887,6 +1887,150 @@ def ws_cmd(
 ):
     workspace_cmd(path)
 
+@app.command(name="standup", help="Generate a professional daily standup update based on your recent commits.")
+def standup_cmd(
+    days: int = typer.Option(1, "--days", "-d", help="Number of days of history to scan"),
+    all_authors: bool = typer.Option(False, "--all", "-a", help="Include commits from all authors (defaults to current user only)"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from ace.ai.history_analyzer import HistoryAnalyzer
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    # 1. Resolve author filter
+    author_name = None
+    if not all_authors:
+        try:
+            author_name = git_ops.repo.git.config("user.name")
+        except Exception:
+            pass
+
+    # 2. Get recent commits
+    since_arg = f"{days} days ago"
+    commits = git_ops.get_log(since=since_arg, author=author_name)
+
+    if not commits:
+        author_msg = "your" if not all_authors else "any"
+        print_warning(f"No recent commits found from {author_msg} author in the last {days} day(s).")
+        raise typer.Exit(code=0)
+
+    analyzer = HistoryAnalyzer(git_ops)
+
+    try:
+        get_llm(offline_override=offline)
+        with spinner(f"Analyzing {len(commits)} commits and generating standup..."):
+            standup_report = analyzer.generate_standup(commits, offline=offline)
+    except Exception as e:
+        show_error_panel(f"Failed to generate standup: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    console.print()
+    console.print(Panel(
+        Markdown(standup_report),
+        title="[bold green]AI Daily Standup Report[/bold green]",
+        border_style="#00E676",
+        padding=(1, 2)
+    ))
+    console.print()
+
+@app.command(name="blame", help="AI-powered Git blame: analyze who wrote a line, when, and explain WHY they wrote it.")
+def blame_cmd(
+    file: str = typer.Argument(..., help="Path to the file to inspect"),
+    line: int = typer.Argument(..., help="Line number to inspect"),
+    offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
+):
+    from ace.core.git_ops import GitOps, NotAGitRepositoryError
+    from ace.ai.llm_factory import get_llm
+    from ace.ai.history_analyzer import HistoryAnalyzer
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+    import pathlib
+
+    try:
+        git_ops = GitOps()
+    except NotAGitRepositoryError as e:
+        show_error_panel(str(e), "Git Error")
+        raise typer.Exit(code=1)
+
+    # 1. Resolve path and verify it exists
+    filepath = pathlib.Path(file)
+    if not filepath.exists() or not filepath.is_file():
+        show_error_panel(f"File '{file}' does not exist or is not a regular file.", "Input Error")
+        raise typer.Exit(code=1)
+
+    # 2. Retrieve the line content
+    try:
+        file_lines = filepath.read_text(encoding="utf-8", errors="replace").splitlines()
+        if line < 1 or line > len(file_lines):
+            show_error_panel(f"Line number {line} is out of bounds for '{file}' (total lines: {len(file_lines)}).", "Input Error")
+            raise typer.Exit(code=1)
+        line_content = file_lines[line - 1].strip()
+    except Exception as e:
+        show_error_panel(f"Failed to read file: {e}", "Read Error")
+        raise typer.Exit(code=1)
+
+    # 3. Run git blame for this line
+    try:
+        blame_output = git_ops.execute(f"blame -L {line},{line} -- {file}")
+        parts = blame_output.strip().split()
+        if not parts:
+            raise ValueError("Blame output is empty.")
+        commit_hash = parts[0]
+        commit_hash = commit_hash.lstrip("^")
+    except Exception as e:
+        show_error_panel(f"Failed to execute git blame: {e}", "Git Error")
+        raise typer.Exit(code=1)
+
+    # 4. Get commit details and full diff patch
+    try:
+        commit = git_ops.repo.commit(commit_hash)
+        commit_info = {
+            "hexsha": commit.hexsha,
+            "author": commit.author.name,
+            "date": commit.committed_datetime.isoformat(),
+            "summary": commit.summary,
+            "message": commit.message,
+        }
+        commit_show_output = git_ops.execute(f"show -p {commit_hash} -- {file}")
+    except Exception as e:
+        show_error_panel(f"Failed to fetch commit details for '{commit_hash}': {e}", "Git Error")
+        raise typer.Exit(code=1)
+
+    # 5. Run LLM blame analysis
+    analyzer = HistoryAnalyzer(git_ops)
+
+    try:
+        get_llm(offline_override=offline)
+        with spinner(f"Analyzing commit history for line {line}..."):
+            blame_analysis = analyzer.analyze_blame(
+                file=file,
+                line=line,
+                commit_info=commit_info,
+                commit_show_output=commit_show_output,
+                line_content=line_content,
+                offline=offline
+            )
+    except Exception as e:
+        show_error_panel(f"Failed to analyze blame: {e}", "AI Error")
+        raise typer.Exit(code=1)
+
+    console.print()
+    console.print(Panel(
+        Markdown(blame_analysis),
+        title=f"[bold cyan]AI Blame Analysis: {file}:{line}[/bold cyan]",
+        border_style="#00D5FF",
+        padding=(1, 2)
+    ))
+    console.print()
+
 if __name__ == "__main__":
     app()
 

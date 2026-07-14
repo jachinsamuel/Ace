@@ -134,6 +134,8 @@ Ace has dedicated subcommands for specific tasks. Here is the complete command l
 | `ace hook <action>` | — | Install or uninstall pre-commit and prepare-commit-msg Git hooks. |
 | `ace stats` | — | Rich visualization of repo statistics, extension breakdowns, and history. |
 | `ace changelog` | — | Compile release changelogs since the last tag. |
+| `ace standup` | — | Generate a professional daily standup update based on your recent commits. |
+| `ace blame <file> <line>` | — | AI-powered Git blame: analyze who wrote a line and explain WHY they wrote it. |
 | `ace pr` | — | Draft a Markdown pull request title and description. |
 | `ace search <query>` | — | Semantically search commit history with interactive checkout options. |
 | `ace squash` | — | Automatically analyze commit history and run AI-guided interactive rebases. |

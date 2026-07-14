@@ -187,3 +187,62 @@ class HistoryAnalyzer:
         response = llm.invoke(messages)
         return extract_json(response.content)
 
+    def generate_standup(self, commits: list, offline: bool = False) -> str:
+        """
+        Analyze recent commits and generate a daily standup markdown report.
+        """
+        if not commits:
+            return "No recent commits found to generate a standup from."
+
+        commit_lines = []
+        for c in commits:
+            commit_lines.append(f"- {c['hexsha'][:7]} - {c['summary']} (by {c['author']})")
+        commit_list_text = "\n".join(commit_lines)
+
+        from ace.ai.prompts.standup import STANDUP_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+        llm = get_llm(offline_override=offline)
+        
+        usr_prompt = USER_PROMPT_TEMPLATE.format(commit_list_text=commit_list_text)
+        messages = [
+            SystemMessage(content=STANDUP_SYSTEM_PROMPT),
+            HumanMessage(content=usr_prompt)
+        ]
+        
+        response = llm.invoke(messages)
+        return response.content.strip()
+
+    def analyze_blame(
+        self,
+        file: str,
+        line: int,
+        commit_info: dict,
+        commit_show_output: str,
+        line_content: str,
+        offline: bool = False
+    ) -> str:
+        """
+        Analyze why a specific line was written using LLM and commit patch info.
+        """
+        from ace.ai.prompts.blame import BLAME_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+        llm = get_llm(offline_override=offline)
+
+        usr_prompt = USER_PROMPT_TEMPLATE.format(
+            file=file,
+            line=line,
+            line_content=line_content,
+            commit_hash=commit_info.get("hexsha", ""),
+            author=commit_info.get("author", ""),
+            date=commit_info.get("date", ""),
+            summary=commit_info.get("summary", ""),
+            message=commit_info.get("message", ""),
+            patch=commit_show_output[:15000]
+        )
+
+        messages = [
+            SystemMessage(content=BLAME_SYSTEM_PROMPT),
+            HumanMessage(content=usr_prompt)
+        ]
+
+        response = llm.invoke(messages)
+        return response.content.strip()
+

@@ -262,6 +262,7 @@ def main(
                 console.print(out)
                 
     print_success("Plan executed successfully!")
+    raise typer.Exit(code=0)
 
 @app.command(name="commit", help="Generate a smart commit message from staged changes and commit.")
 def commit_cmd(

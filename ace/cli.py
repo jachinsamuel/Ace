@@ -84,16 +84,38 @@ def main(
     from ace.core.safety import SafetyChecker
     from ace.ui.prompts import confirm
 
-    if ctx.invoked_subcommand is not None:
+    # Intercept subcommand if the user typed an English sentence (e.g. 'ace add and commit')
+    intercepted_query = None
+    if ctx.invoked_subcommand in ("add", "stage", "commit", "review", "explain", "resolve", "search"):
+        import sys
+        sub_cmd = ctx.invoked_subcommand
+        sub_idx = -1
+        for idx, arg in enumerate(sys.argv):
+            if arg == sub_cmd and idx > 0 and not sys.argv[idx - 1].startswith("-"):
+                sub_idx = idx
+                break
+        if sub_idx != -1:
+            sub_args = sys.argv[sub_idx + 1:]
+            nl_indicators = {"and", "with", "to", "the", "a", "new", "my", "all", "but", "yesterday", "last", "from", "for", "changed", "everything"}
+            if any(arg.lower() in nl_indicators for arg in sub_args):
+                query_parts = []
+                for arg in sys.argv[1:]:
+                    if arg.startswith("-"):
+                        continue
+                    query_parts.append(arg)
+                intercepted_query = " ".join(query_parts)
+
+    if intercepted_query:
+        query = intercepted_query
+    elif ctx.invoked_subcommand is not None:
         # A subcommand was invoked, let it execute
         return
-        
-    if not ctx.args:
-        # No query and no subcommand, Typer will show help
-        console.print(ctx.get_help())
-        raise typer.Exit()
-
-    query = " ".join(ctx.args)
+    else:
+        if not ctx.args:
+            # No query and no subcommand, Typer will show help
+            console.print(ctx.get_help())
+            raise typer.Exit()
+        query = " ".join(ctx.args)
 
     # Initialize GitOps
     try:

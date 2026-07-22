@@ -79,16 +79,16 @@ ace setup
 ```
 Ace saves your configuration file to `~/.ace/config.toml`. It supports the following AI model providers:
 
-### 1. NVIDIA NIM API (Cloud)
-Uses cloud-hosted high-performance models.
-* You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
-* Default model: `meta/llama-3.3-70b-instruct`
-
-### 2. Ollama (Local Models)
+### 1. Ollama (Local Models)
 For a 100% private, offline, and free experience.
 * Ensure [Ollama](https://ollama.com/) is installed and running on your system.
 * Default model: `qwen2.5-coder:7b`
 * If the selected model is not downloaded yet, Ace will automatically pull it for you during setup.
+
+### 2. NVIDIA NIM API (Cloud)
+Uses cloud-hosted high-performance models.
+* You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
+* Default model: `meta/llama-3.3-70b-instruct`
 
 ### 3. OpenAI
 Uses OpenAI GPT models.

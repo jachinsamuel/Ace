@@ -19,6 +19,8 @@ Author: Jachin Samuel <jachinsamuel007@gmail.com>
 
 Ace is an intelligent command-line tool that brings AI assistance directly to your Git workflow. Talk to Git in plain English — Ace translates your intents into Git commands, explains what it is doing, and runs them safely. It also features a fully interactive terminal user interface (TUI) dashboard to help manage your repositories with ease.
 
+![Ace CLI in action](media/cli_in_action.jpg)
+
 ---
 
 ## Features
@@ -154,6 +156,8 @@ Launch the repository dashboard by running:
 ```bash
 ace dash
 ```
+
+![Ace TUI Dashboard](media/dashboard.jpg)
 
 The dashboard features:
 *   A start-up logo.

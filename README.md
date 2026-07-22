@@ -39,9 +39,19 @@ Ace is an intelligent command-line tool that brings AI assistance directly to yo
 
 ## Installation
 
+### Option A: Install via standard pip (Recommended)
+You can install Ace globally using standard pip:
+```bash
+pip install ace-git-copilot
+```
+*Note: If you run into a `command not found` error, you can bypass your system PATH and run the tool directly through Python module execution:*
+```bash
+python -m ace dash
+```
+
+### Option B: Install via pipx (Alternative)
 For Python command-line applications like Ace, it is highly recommended to install using **pipx**. pipx automatically installs the application in an isolated environment and manages your system PATH so the executable works globally without conflict.
 
-### Option A: Install via pipx (Recommended)
 1. Install pipx and configure your system PATH (only needs to be done once):
    ```bash
    pip install pipx
@@ -58,16 +68,6 @@ For Python command-line applications like Ace, it is highly recommended to insta
    ```bash
    ace dash
    ```
-
-### Option B: Install via standard pip (Alternative)
-You can also install Ace globally using standard pip:
-```bash
-pip install ace-git-copilot
-```
-*Note: If you run into a `command not found` error, you can bypass your system PATH and run the tool directly through Python module execution:*
-```bash
-python -m ace dash
-```
 
 ---
 

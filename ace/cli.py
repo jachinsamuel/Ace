@@ -456,20 +456,22 @@ def commit_cmd(
                 print_success("Pushed and set upstream branch successfully!")
                 console.print(f"[dim]{push_res}[/dim]")
             except Exception as e:
-                show_error_panel(f"Push failed: {e}", "Git Push Error")
+                from ace.ai.push_resolver import handle_push_failure
+                handle_push_failure(git_ops, str(e), remote=selected_remote, branch=current_branch, offline=offline)
     else:
         # Upstream exists
         msg_push = f"Push to upstream branch '{upstream}'? (Your branch is {ahead} commit(s) ahead of remote)"
         if confirm(msg_push, default=True):
+            remote_name = upstream.split("/")[0] if "/" in upstream else "origin"
             try:
-                # Find the remote name from upstream (e.g. 'origin/main' -> 'origin')
-                remote_name = upstream.split("/")[0] if "/" in upstream else "origin"
                 with spinner(f"Pushing to {upstream}..."):
                     push_res = git_ops.push(remote=remote_name)
                 print_success("Pushed to remote successfully!")
                 console.print(f"[dim]{push_res}[/dim]")
             except Exception as e:
-                show_error_panel(f"Push failed: {e}", "Git Push Error")
+                from ace.ai.push_resolver import handle_push_failure
+                handle_push_failure(git_ops, str(e), remote=remote_name, branch=current_branch, offline=offline)
+
 
 @app.command(name="setup", help="Initial configuration wizard for Ace.")
 def setup_cmd():

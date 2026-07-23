@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 import json
 import urllib.request
@@ -84,17 +85,57 @@ def ensure_ollama_model(base_url: str, model_name: str) -> None:
             print_error(f"Failed to pull model: {e}")
             print_info(f"Please run 'ollama pull {model_name}' manually in your shell.\n")
 
+def _get_ollama_llm(config) -> BaseChatModel:
+    from langchain_ollama import ChatOllama
+    base_url = config.ai.ollama_url or "http://localhost:11434"
+    try:
+        ensure_ollama_model(base_url, config.ai.ollama_model)
+    except Exception:
+        pass
+    return ChatOllama(
+        model=config.ai.ollama_model,
+        base_url=base_url,
+        temperature=0.0,
+        num_predict=2048,
+    )
+
+class FallbackChatModel:
+    """Wrapper that attempts primary online LLM invocation and falls back to local Ollama on network/API failure."""
+    def __init__(self, primary_llm: BaseChatModel, fallback_llm: Optional[BaseChatModel] = None):
+        self.primary_llm = primary_llm
+        self.fallback_llm = fallback_llm
+
+    def invoke(self, input_data, config=None, **kwargs):
+        try:
+            return self.primary_llm.invoke(input_data, config=config, **kwargs)
+        except Exception as primary_err:
+            if self.fallback_llm and self.fallback_llm != self.primary_llm:
+                from ace.ui.display import print_warning
+                print_warning(f"Online AI provider failed ({primary_err}). Automatically falling back to local Ollama...")
+                try:
+                    return self.fallback_llm.invoke(input_data, config=config, **kwargs)
+                except Exception as fallback_err:
+                    raise primary_err from fallback_err
+            raise primary_err
+
 def get_llm(offline_override: bool = False) -> BaseChatModel:
     """
     Get the configured LLM client.
     
     If offline_override is True, it will ignore the provider setting and force Ollama.
+    When using an online provider, it automatically wraps the client in a FallbackChatModel
+    to gracefully fall back to local Ollama if network connection or API calls fail.
     """
     config = get_config()
     
     # Determine provider (override if offline requested)
     provider = "ollama" if offline_override else config.ai.provider
     
+    if provider == "ollama":
+        return _get_ollama_llm(config)
+
+    # Build primary LLM
+    primary_llm = None
     if provider == "nvidia":
         api_key = config.ai.nvidia_api_key or os.getenv("NVIDIA_API_KEY")
         if not api_key:
@@ -104,29 +145,12 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
             )
             
         from langchain_nvidia_ai_endpoints import ChatNVIDIA
-        return ChatNVIDIA(
+        primary_llm = ChatNVIDIA(
             model=config.ai.nvidia_model,
             api_key=api_key,
             base_url="https://integrate.api.nvidia.com/v1",
             temperature=0.0,
             max_tokens=2048,
-        )
-        
-    elif provider == "ollama":
-        from langchain_ollama import ChatOllama
-        base_url = config.ai.ollama_url or "http://localhost:11434"
-        
-        # Pull model if not available
-        try:
-            ensure_ollama_model(base_url, config.ai.ollama_model)
-        except Exception:
-            pass
-            
-        return ChatOllama(
-            model=config.ai.ollama_model,
-            base_url=base_url,
-            temperature=0.0,
-            num_predict=2048,
         )
         
     elif provider == "openai":
@@ -137,7 +161,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 "or configure it using 'ace setup'."
             )
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
+        primary_llm = ChatOpenAI(
             model=config.ai.openai_model or "gpt-4o-mini",
             api_key=api_key,
             temperature=0.0,
@@ -152,7 +176,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 "or configure it using 'ace setup'."
             )
         from langchain_anthropic import ChatAnthropic
-        return ChatAnthropic(
+        primary_llm = ChatAnthropic(
             model=config.ai.anthropic_model or "claude-3-5-sonnet-latest",
             api_key=api_key,
             temperature=0.0,
@@ -169,15 +193,24 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 "or configure it using 'ace setup'."
             )
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
+        primary_llm = ChatOpenAI(
             model=model_name or "custom-model",
             api_key=api_key or "no-key",
             base_url=base_url,
             temperature=0.0,
             max_tokens=2048,
         )
-
     else:
         raise LLMConfigurationError(
             f"Unsupported AI provider: '{provider}'. Supported providers are: nvidia, ollama, openai, anthropic, custom."
         )
+
+    # Attempt to construct local Ollama fallback LLM
+    fallback_llm = None
+    try:
+        fallback_llm = _get_ollama_llm(config)
+    except Exception:
+        pass
+
+    return FallbackChatModel(primary_llm=primary_llm, fallback_llm=fallback_llm)
+

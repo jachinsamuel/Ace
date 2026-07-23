@@ -40,3 +40,23 @@ def test_subcommand_interceptor_normal_subcmd(mock_git_ops_class):
     # Normal execution path: it routes to the add subcommand, tries to run git add, and fails
     assert result.exit_code == 1
     mock_git_ops.execute.assert_called_once_with("add file1.txt")
+
+
+@patch("ace.core.git_ops.GitOps")
+@patch("ace.ai.llm_factory.get_llm")
+@patch("ace.ai.intent_parser.IntentParser")
+def test_subcommand_interceptor_with_flags(mock_parser_class, mock_get_llm, mock_git_ops_class):
+    mock_git_ops = MagicMock()
+    mock_git_ops_class.return_value = mock_git_ops
+    
+    mock_parser = MagicMock()
+    mock_parser.parse_intent.return_value = {"commands": [], "explanation": "NL query with flag matched"}
+    mock_parser_class.return_value = mock_parser
+
+    # Simulate: ace -y add and commit
+    with patch.object(sys, "argv", ["ace", "-y", "add", "and", "commit"]):
+        result = runner.invoke(app, ["-y", "add", "and", "commit"])
+        
+    assert result.exit_code == 0
+    mock_parser.parse_intent.assert_called_once_with("add and commit", offline=False)
+

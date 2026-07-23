@@ -99,8 +99,12 @@ def _get_ollama_llm(config) -> BaseChatModel:
         num_predict=2048,
     )
 
+class HeuristicFallbackResponse:
+    def __init__(self, content: str):
+        self.content = content
+
 class FallbackChatModel:
-    """Wrapper that attempts primary online LLM invocation and falls back to local Ollama on network/API failure."""
+    """Wrapper that attempts primary online LLM invocation, falls back to local Ollama, and finally smart heuristics."""
     def __init__(self, primary_llm: BaseChatModel, fallback_llm: Optional[BaseChatModel] = None):
         self.primary_llm = primary_llm
         self.fallback_llm = fallback_llm
@@ -114,9 +118,55 @@ class FallbackChatModel:
                 print_warning(f"Online AI provider failed ({primary_err}). Automatically falling back to local Ollama...")
                 try:
                     return self.fallback_llm.invoke(input_data, config=config, **kwargs)
-                except Exception as fallback_err:
-                    raise primary_err from fallback_err
-            raise primary_err
+                except Exception:
+                    print_warning("Local Ollama service unavailable. Using Smart Heuristic Fallback...")
+                    return self._generate_heuristic_response(input_data)
+            
+            from ace.ui.display import print_warning
+            print_warning(f"Online AI provider failed ({primary_err}). Using Smart Heuristic Fallback...")
+            return self._generate_heuristic_response(input_data)
+
+    def _generate_heuristic_response(self, input_data) -> HeuristicFallbackResponse:
+        user_text = ""
+        if isinstance(input_data, list):
+            for msg in input_data:
+                if hasattr(msg, "content"):
+                    user_text += str(msg.content) + "\n"
+        else:
+            user_text = str(input_data)
+            
+        user_lower = user_text.lower()
+        
+        # 1. Intent Parsing
+        if "translate this request into git commands" in user_lower or "risk_level" in user_lower:
+            if "commit" in user_lower and "add" in user_lower:
+                json_str = '{"commands": ["git add .", "ace commit"], "explanation": "Stage all changes and run smart commit.", "risk_level": "moderate", "alternatives": null}'
+            elif "push" in user_lower:
+                json_str = '{"commands": ["git push"], "explanation": "Push local commits to remote.", "risk_level": "moderate", "alternatives": null}'
+            elif "status" in user_lower:
+                json_str = '{"commands": ["git status"], "explanation": "Display working tree status.", "risk_level": "safe", "alternatives": null}'
+            elif "log" in user_lower or "history" in user_lower:
+                json_str = '{"commands": ["git log --oneline -n 10"], "explanation": "Display recent commit history.", "risk_level": "safe", "alternatives": null}'
+            elif "undo" in user_lower or "reset" in user_lower:
+                json_str = '{"commands": ["git reset --soft HEAD~1"], "explanation": "Undo last commit, keeping changes staged.", "risk_level": "moderate", "alternatives": null}'
+            else:
+                json_str = '{"commands": ["git add ."], "explanation": "Stage working directory changes.", "risk_level": "moderate", "alternatives": null}'
+            return HeuristicFallbackResponse(json_str)
+            
+        # 2. Commit Message Generation
+        if "conventional_commit" in user_lower or "staged changes" in user_lower or "diff" in user_lower:
+            if "readme" in user_lower or "docs" in user_lower or ".md" in user_lower:
+                commit_msg = "docs: update documentation and project readme"
+            elif "test" in user_lower or "tests/" in user_lower:
+                commit_msg = "test: add and update test suite coverage"
+            elif "pyproject.toml" in user_lower or "package.json" in user_lower:
+                commit_msg = "chore(deps): update project dependencies and metadata"
+            else:
+                commit_msg = "feat: update staged project files"
+            return HeuristicFallbackResponse(commit_msg)
+
+        return HeuristicFallbackResponse("feat: update project files")
+
 
 def get_llm(offline_override: bool = False) -> BaseChatModel:
     """

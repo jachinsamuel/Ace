@@ -111,14 +111,15 @@ def test_commit_missing_llm_credentials(git_workspace):
     res = subprocess.run(
         cmd,
         cwd=str(git_workspace.workspace),
+        input="\n",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
         env=env
     )
-    assert res.returncode == 1
-    assert "Configuration Error" in res.stdout or "Configuration Error" in res.stderr
+    assert res.returncode == 0
+    assert "Using Smart Heuristic Fallback" in res.stdout or "Committed changes successfully!" in res.stdout
 
 def test_commit_very_long_diff(git_workspace):
     test_file = git_workspace.workspace / "test.txt"
@@ -302,6 +303,7 @@ def test_pr_drafter_invalid_json_llm_response(git_workspace):
     res = subprocess.run(
         cmd,
         cwd=str(git_workspace.workspace),
+        input="\n",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

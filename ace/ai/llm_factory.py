@@ -99,6 +99,14 @@ def _get_ollama_llm(config) -> BaseChatModel:
         num_predict=2048,
     )
 
+class DummyMissingKeyLLM:
+    def __init__(self, provider: str, error_msg: str):
+        self.provider = provider
+        self.error_msg = error_msg
+
+    def invoke(self, input_data, config=None, **kwargs):
+        raise LLMConfigurationError(self.error_msg)
+
 class HeuristicFallbackResponse:
     def __init__(self, content: str):
         self.content = content
@@ -189,71 +197,60 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
     if provider == "nvidia":
         api_key = config.ai.nvidia_api_key or os.getenv("NVIDIA_API_KEY")
         if not api_key:
-            raise LLMConfigurationError(
-                "NVIDIA API Key not found. Please set the NVIDIA_API_KEY environment variable "
-                "or configure it using 'ace setup'."
+            primary_llm = DummyMissingKeyLLM("nvidia", "NVIDIA API Key not found. Please set NVIDIA_API_KEY or run 'ace setup'.")
+        else:
+            from langchain_nvidia_ai_endpoints import ChatNVIDIA
+            primary_llm = ChatNVIDIA(
+                model=config.ai.nvidia_model,
+                api_key=api_key,
+                base_url="https://integrate.api.nvidia.com/v1",
+                temperature=0.0,
+                max_tokens=2048,
             )
-            
-        from langchain_nvidia_ai_endpoints import ChatNVIDIA
-        primary_llm = ChatNVIDIA(
-            model=config.ai.nvidia_model,
-            api_key=api_key,
-            base_url="https://integrate.api.nvidia.com/v1",
-            temperature=0.0,
-            max_tokens=2048,
-        )
         
     elif provider == "openai":
         api_key = config.ai.openai_api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise LLMConfigurationError(
-                "OpenAI API Key not found. Please set the OPENAI_API_KEY environment variable "
-                "or configure it using 'ace setup'."
+            primary_llm = DummyMissingKeyLLM("openai", "OpenAI API Key not found. Please set OPENAI_API_KEY or run 'ace setup'.")
+        else:
+            from langchain_openai import ChatOpenAI
+            primary_llm = ChatOpenAI(
+                model=config.ai.openai_model or "gpt-4o-mini",
+                api_key=api_key,
+                temperature=0.0,
+                max_tokens=2048,
             )
-        from langchain_openai import ChatOpenAI
-        primary_llm = ChatOpenAI(
-            model=config.ai.openai_model or "gpt-4o-mini",
-            api_key=api_key,
-            temperature=0.0,
-            max_tokens=2048,
-        )
 
     elif provider == "anthropic":
         api_key = config.ai.anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            raise LLMConfigurationError(
-                "Anthropic API Key not found. Please set the ANTHROPIC_API_KEY environment variable "
-                "or configure it using 'ace setup'."
+            primary_llm = DummyMissingKeyLLM("anthropic", "Anthropic API Key not found. Please set ANTHROPIC_API_KEY or run 'ace setup'.")
+        else:
+            from langchain_anthropic import ChatAnthropic
+            primary_llm = ChatAnthropic(
+                model=config.ai.anthropic_model or "claude-3-5-sonnet-latest",
+                api_key=api_key,
+                temperature=0.0,
+                max_tokens=2048,
             )
-        from langchain_anthropic import ChatAnthropic
-        primary_llm = ChatAnthropic(
-            model=config.ai.anthropic_model or "claude-3-5-sonnet-latest",
-            api_key=api_key,
-            temperature=0.0,
-            max_tokens=2048,
-        )
 
     elif provider == "custom":
         api_key = config.ai.custom_api_key or os.getenv("CUSTOM_API_KEY")
         base_url = config.ai.custom_api_base or os.getenv("CUSTOM_API_BASE")
         model_name = config.ai.custom_model or os.getenv("CUSTOM_MODEL")
         if not base_url:
-            raise LLMConfigurationError(
-                "Custom API Base URL not found. Please set the CUSTOM_API_BASE environment variable "
-                "or configure it using 'ace setup'."
+            primary_llm = DummyMissingKeyLLM("custom", "Custom API Base URL not found. Please set CUSTOM_API_BASE or run 'ace setup'.")
+        else:
+            from langchain_openai import ChatOpenAI
+            primary_llm = ChatOpenAI(
+                model=model_name or "custom-model",
+                api_key=api_key or "no-key",
+                base_url=base_url,
+                temperature=0.0,
+                max_tokens=2048,
             )
-        from langchain_openai import ChatOpenAI
-        primary_llm = ChatOpenAI(
-            model=model_name or "custom-model",
-            api_key=api_key or "no-key",
-            base_url=base_url,
-            temperature=0.0,
-            max_tokens=2048,
-        )
     else:
-        raise LLMConfigurationError(
-            f"Unsupported AI provider: '{provider}'. Supported providers are: nvidia, ollama, openai, anthropic, custom."
-        )
+        primary_llm = DummyMissingKeyLLM(provider, f"Unsupported AI provider: '{provider}'.")
 
     # Attempt to construct local Ollama fallback LLM
     fallback_llm = None

@@ -1,6 +1,6 @@
 [project]
 name = "ace-git-copilot"
-version = "0.5.4"
+version = "0.5.5"
 description = "AI-powered Git copilot — talk to Git in plain English"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -51,4 +51,4 @@ packages = ["ace"]
 exclude = [".agents", "scratch"]
 
 [tool.ruff.lint]
-ignore = ["E402", "F401"]
+ignore = ["E402", "F401", "I", "I001", "E501"]

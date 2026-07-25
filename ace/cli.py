@@ -117,13 +117,25 @@ def main(
     if intercepted_query:
         query = intercepted_query
     elif ctx.invoked_subcommand is not None:
-        # A subcommand was invoked, let it execute
+        from ace.core.config import get_config
+        config = get_config()
+        if ctx.invoked_subcommand in config.aliases and ctx.invoked_subcommand != "alias":
+            _execute_alias(ctx.invoked_subcommand, config.aliases[ctx.invoked_subcommand])
+            raise typer.Exit(code=0)
         return
     else:
         if not ctx.args:
             # No query and no subcommand, Typer will show help
             console.print(ctx.get_help())
             raise typer.Exit()
+
+        first_arg = ctx.args[0].lower().strip()
+        from ace.core.config import get_config
+        config = get_config()
+        if first_arg in config.aliases and first_arg != "alias":
+            _execute_alias(first_arg, config.aliases[first_arg])
+            raise typer.Exit(code=0)
+
         query = " ".join(ctx.args)
 
     # Initialize GitOps
@@ -1435,6 +1447,108 @@ def search_cmd(
                         print_success(f"Successfully created and switched to branch '{branch_name}'!")
                     except Exception as e:
                         show_error_panel(f"Failed to create branch: {e}", "Git Error")
+
+def _execute_alias(alias_name: str, expanded_cmd: str):
+    import shlex
+    import subprocess
+    from rich.text import Text
+    from ace.core.git_ops import GitOps
+
+    console.print(Text.assemble(
+        ("⚡ Running custom shortcut: ", "bold #00D5FF"),
+        (f"ace {alias_name}", "bold white"),
+        (f" → {expanded_cmd}", "dim #9E9E9E")
+    ))
+    console.print()
+
+    sub_commands = [c.strip() for c in expanded_cmd.split("&&") if c.strip()]
+    for sub in sub_commands:
+        if sub.startswith("ace "):
+            sub_args = shlex.split(sub[4:])
+            try:
+                app(sub_args)
+            except SystemExit as e:
+                if e.code != 0:
+                    raise typer.Exit(code=e.code)
+            except Exception as e:
+                show_error_panel(f"Alias command '{sub}' failed: {e}", "Alias Execution Error")
+                raise typer.Exit(code=1)
+        elif sub.startswith("git "):
+            try:
+                git_ops = GitOps()
+                with spinner(f"Executing: {sub}..."):
+                    res = git_ops.execute(sub[4:])
+                print_success(f"Executed: {sub}")
+                if res.strip():
+                    console.print(f"[dim]{res}[/dim]")
+            except Exception as e:
+                show_error_panel(f"Git command '{sub}' failed: {e}", "Alias Execution Error")
+                raise typer.Exit(code=1)
+        else:
+            res = subprocess.run(sub, shell=True, capture_output=True, text=True)
+            if res.returncode == 0:
+                print_success(f"Executed: {sub}")
+                if res.stdout.strip():
+                    console.print(f"[dim]{res.stdout.strip()}[/dim]")
+            else:
+                show_error_panel(f"Command '{sub}' failed: {res.stderr.strip()}", "Alias Execution Error")
+                raise typer.Exit(code=1)
+
+@app.command(name="alias", help="Manage custom command shortcuts and natural language workflows.")
+def alias_cmd(
+    action: Optional[str] = typer.Argument(None, help="Action: 'list' (or 'ls'), 'add', 'remove' (or 'rm')"),
+    name: Optional[str] = typer.Argument(None, help="Name of the alias (e.g. 'ship', 'wip')"),
+    command: Optional[str] = typer.Argument(None, help="Command string to execute (e.g. 'git add . && ace commit -y')"),
+):
+    from ace.core.config import get_config, save_config
+    from rich.table import Table
+    from rich import box
+
+    config = get_config()
+    act = (action or "list").lower().strip()
+
+    if act in ("list", "ls"):
+        aliases = config.aliases
+        if not aliases:
+            print_info("No custom aliases defined. Add one using: ace alias add <name> \"<command>\"")
+            return
+
+        table = Table(title="Ace Custom Shortcuts & Aliases", box=box.ROUNDED, show_header=True, header_style="bold #FF6D00")
+        table.add_column("Alias", style="bold cyan", min_width=12)
+        table.add_column("Command / Workflow", style="white")
+        table.add_column("Usage Example", style="dim italic")
+
+        for alias_name, alias_cmd_str in aliases.items():
+            table.add_row(alias_name, alias_cmd_str, f"ace {alias_name}")
+
+        console.print(table)
+        console.print()
+
+    elif act == "add":
+        if not name or not command:
+            show_error_panel("Usage: ace alias add <name> \"<command_string>\"", "Input Error")
+            raise typer.Exit(code=1)
+
+        config.set_alias(name, command)
+        save_config(config)
+        print_success(f"Successfully added shortcut '{name}' -> '{command}'!")
+        console.print(f"[dim]Run it anytime with: [bold cyan]ace {name}[/bold cyan][/dim]")
+
+    elif act in ("remove", "rm", "delete"):
+        if not name:
+            show_error_panel("Usage: ace alias remove <name>", "Input Error")
+            raise typer.Exit(code=1)
+
+        if config.remove_alias(name):
+            save_config(config)
+            print_success(f"Successfully removed shortcut '{name}'.")
+        else:
+            print_warning(f"No alias found named '{name}'.")
+
+    else:
+        show_error_panel(f"Unknown action '{action}'. Valid actions: list, add, remove.", "Input Error")
+        raise typer.Exit(code=1)
+
 
 @app.command(name="ignore", help="Smart gitignore generation and template addition.")
 def ignore_cmd(

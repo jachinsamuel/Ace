@@ -1,7 +1,7 @@
 import os
 import toml
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 DEFAULT_CONFIG_DIR = Path.home() / ".ace"
 DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / "config.toml"
@@ -32,6 +32,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "safety": {
         "confirm_destructive": True,
         "auto_stash": True,
+    },
+    "aliases": {
+        "ship": "git add . && ace commit -y && git push",
+        "wip": "git add . && ace commit -f simple",
+        "sync": "git pull --rebase && git push",
     }
 }
 
@@ -58,6 +63,7 @@ class Config:
         self.commit = ConfigSection(data.get("commit", {}))
         self.review = ConfigSection(data.get("review", {}))
         self.safety = ConfigSection(data.get("safety", {}))
+        self.aliases: Dict[str, str] = data.get("aliases", {})
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -65,7 +71,20 @@ class Config:
             "commit": self.commit.to_dict(),
             "review": self.review.to_dict(),
             "safety": self.safety.to_dict(),
+            "aliases": self.aliases,
         }
+
+    def get_alias(self, name: str) -> Optional[str]:
+        return self.aliases.get(name)
+
+    def set_alias(self, name: str, command: str) -> None:
+        self.aliases[name] = command
+
+    def remove_alias(self, name: str) -> bool:
+        if name in self.aliases:
+            del self.aliases[name]
+            return True
+        return False
 
 def load_config_file() -> Dict[str, Any]:
     """Load config from ~/.ace/config.toml, creating it with defaults if it doesn't exist."""

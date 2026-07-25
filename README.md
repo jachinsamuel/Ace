@@ -142,6 +142,7 @@ Ace has dedicated subcommands for specific tasks. Here is the complete command l
 | `ace search <query>` | — | Semantically search commit history with interactive checkout options. |
 | `ace squash` | — | Automatically analyze commit history and run AI-guided interactive rebases. |
 | `ace ignore <rule>` | — | Generate and append standard templates to `.gitignore`. |
+| `ace alias <action>` | — | Manage custom command shortcuts (e.g. `ace alias add ship "git add . && ace commit -y"`). |
 | `ace undo` | — | Safely revert the last action after checking repository status. |
 | `ace workspace` | `ace ws` | Monitor status of multiple repositories and navigate between them. |
 | `ace dash` | — | Launch the interactive repository management console (TUI). |

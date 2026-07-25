@@ -4,7 +4,6 @@ from typing import Dict, Any
 
 class JSONExtractError(Exception):
     """Raised when JSON extraction fails."""
-    pass
 
 def extract_json(text: str) -> Dict[str, Any]:
     """

@@ -115,7 +115,7 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
             for p in parent_dir.iterdir():
                 if p.is_dir() and p != Path(git_ops.working_dir) and (p / ".git").exists():
                     sibling_repos.append(p.name)
-        except Exception:
+        except (OSError, PermissionError):
             pass
 
         sibling_panel = None
@@ -128,8 +128,8 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
                 try:
                     import git as _git
                     sib_branch = _git.Repo(parent_dir / r_name).active_branch.name
-                except Exception:
-                    pass
+                except Exception:  # noqa: BLE001
+                    sib_branch = "?"
                 rt.add_row(r_name, sib_branch)
             if len(sibling_repos) > 5:
                 rt.add_row(f"  +{len(sibling_repos) - 5} more", "")
@@ -240,28 +240,28 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
             from ace.cli import commit_cmd
             try:
                 commit_cmd(offline=offline)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 console.print(f"[error]  Error: {e}[/error]")
 
         elif choice == "r":
             from ace.cli import review_cmd
             try:
                 review_cmd(all_changes=True, offline=offline)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 console.print(f"[error]  Error: {e}[/error]")
 
         elif choice == "u":
             from ace.cli import undo_cmd
             try:
                 undo_cmd(offline=offline)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 console.print(f"[error]  Error: {e}[/error]")
 
         elif choice == "s":
             from ace.cli import stats_cmd
             try:
                 stats_cmd()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 console.print(f"[error]  Error: {e}[/error]")
 
         elif choice == "w":
@@ -287,7 +287,7 @@ def _handle_switch_repo(git_ops: GitOps, parent_dir: Path) -> None:
             p.name for p in parent_dir.iterdir()
             if p.is_dir() and (p / ".git").exists()
         )
-    except Exception:
+    except (OSError, PermissionError):
         pass
 
     if not all_repos:
@@ -312,7 +312,7 @@ def _handle_switch_repo(git_ops: GitOps, parent_dir: Path) -> None:
         from ace.core.git_ops import GitOps as _GitOps
         git_ops.__dict__.update(_GitOps(str(new_path)).__dict__)
         print_success(f"Switched to  {selected}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         console.print(f"[error]  Failed to switch: {e}[/error]")
 
 
@@ -376,5 +376,5 @@ def _handle_plan_command(git_ops: GitOps, offline: bool) -> None:
         else:
             console.print("[dim]  Plan aborted.[/dim]")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         console.print(f"[error]  Error: {e}[/error]")

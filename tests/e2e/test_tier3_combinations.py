@@ -11,7 +11,7 @@ def test_combo_setup_then_commit(git_workspace):
     test_file.write_text("combo test")
     git_workspace.repo.index.add([str(test_file)])
     
-    res_commit = git_workspace.run(["commit"], stdin_data="\n")
+    res_commit = git_workspace.run(["commit"], stdin_data="\n\n")
     assert res_commit.returncode == 0
     
     # 3. Verify format override was respected (simple format -> "Add mock feature")
@@ -24,7 +24,7 @@ def test_combo_commit_then_changelog(git_workspace):
     test_file = git_workspace.workspace / "test.txt"
     test_file.write_text("combo test commit-changelog")
     git_workspace.repo.index.add([str(test_file)])
-    res_commit = git_workspace.run(["commit", "-f", "simple"], stdin_data="\n")
+    res_commit = git_workspace.run(["commit", "-f", "simple"], stdin_data="\n\n")
     assert res_commit.returncode == 0
     
     # 2. Generate changelog
@@ -48,7 +48,7 @@ def test_combo_commit_then_pr(git_workspace):
     # 2. Commit on branch using Ace
     test_file.write_text("updated combo pr")
     git_workspace.repo.index.add([str(test_file)])
-    res_commit = git_workspace.run(["commit", "-f", "simple"], stdin_data="\n")
+    res_commit = git_workspace.run(["commit", "-f", "simple"], stdin_data="\n\n")
     assert res_commit.returncode == 0
     
     # 3. Draft PR

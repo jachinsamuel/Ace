@@ -132,7 +132,7 @@ def test_get_llm_custom():
 def test_get_llm_missing_keys():
     import pytest
     from ace.core.config import Config
-    from ace.ai.llm_factory import LLMConfigurationError
+    from ace.ai.llm_factory import LLMConfigurationError, FallbackChatModel
 
     # Test openai missing key
     mock_config = Config({
@@ -143,8 +143,10 @@ def test_get_llm_missing_keys():
         }
     })
     with patch("ace.ai.llm_factory.get_config", return_value=mock_config):
+        llm = get_llm()
+        assert isinstance(llm, FallbackChatModel)
         with pytest.raises(LLMConfigurationError, match="OpenAI API Key not found"):
-            get_llm()
+            llm.primary_llm.invoke("test")
 
     # Test anthropic missing key
     mock_config = Config({
@@ -155,8 +157,10 @@ def test_get_llm_missing_keys():
         }
     })
     with patch("ace.ai.llm_factory.get_config", return_value=mock_config):
+        llm = get_llm()
+        assert isinstance(llm, FallbackChatModel)
         with pytest.raises(LLMConfigurationError, match="Anthropic API Key not found"):
-            get_llm()
+            llm.primary_llm.invoke("test")
 
     # Test custom missing base url
     mock_config = Config({
@@ -168,5 +172,7 @@ def test_get_llm_missing_keys():
         }
     })
     with patch("ace.ai.llm_factory.get_config", return_value=mock_config):
+        llm = get_llm()
+        assert isinstance(llm, FallbackChatModel)
         with pytest.raises(LLMConfigurationError, match="Custom API Base URL not found"):
-            get_llm()
+            llm.primary_llm.invoke("test")

@@ -1,6 +1,6 @@
 [project]
 name = "ace-git-copilot"
-version = "0.5.9"
+version = "0.5.10"
 description = "AI-powered Git copilot — talk to Git in plain English"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -38,7 +38,7 @@ Bug-Tracker = "https://github.com/jachinsamuel/Ace/issues"
 ace = "ace.cli:app"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "ruff"]
+dev = ["pytest", "pytest-cov", "ruff>=0.15"]
 
 [build-system]
 requires = ["hatchling"]
@@ -51,4 +51,5 @@ packages = ["ace"]
 exclude = [".agents", "scratch"]
 
 [tool.ruff.lint]
-ignore = ["E402", "F401", "I", "I001", "E501", "BLE001", "S110", "PIE790", "UP045", "UP024", "TRY201", "S603", "S607", "RUF100"]
+select = ["E", "F"]
+ignore = ["E402", "F401", "E501"]

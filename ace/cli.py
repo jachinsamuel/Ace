@@ -573,6 +573,35 @@ def setup_cmd():
         custom_model = typer.prompt("Custom LLM Model name", default=config.ai.custom_model)
         config.ai.custom_model = custom_model
         
+    console.print("\n[bold]Select Output Language:[/bold]")
+    console.print("  [bold cyan]1[/bold cyan] -> English (Default)")
+    console.print("  [bold cyan]2[/bold cyan] -> Simplified Chinese (简体中文)")
+    console.print("  [bold cyan]3[/bold cyan] -> Traditional Chinese (繁體中文)")
+    console.print("  [bold cyan]4[/bold cyan] -> Spanish (Español)")
+    console.print("  [bold cyan]5[/bold cyan] -> French (Français)")
+    console.print("  [bold cyan]6[/bold cyan] -> German (Deutsch)")
+    console.print("  [bold cyan]7[/bold cyan] -> Japanese (日本語)")
+    console.print("  [bold cyan]8[/bold cyan] -> Custom ISO Language Code (e.g. hi, ru, ko)")
+    console.print("")
+
+    lang_map = {
+        "1": "en",
+        "2": "zh-CN",
+        "3": "zh-TW",
+        "4": "es",
+        "5": "fr",
+        "6": "de",
+        "7": "ja",
+    }
+    lang_choice = typer.prompt("Enter language choice (1-8)", default="1")
+    if lang_choice.strip() in lang_map:
+        config.ai.language = lang_map[lang_choice.strip()]
+    elif lang_choice.strip() == "8":
+        custom_lang = typer.prompt("Enter ISO language code (e.g., hi, ru, ko)", default="en")
+        config.ai.language = custom_lang.strip()
+    else:
+        config.ai.language = lang_choice.strip()
+
     console.print("\n[bold]Configure Commit Preferences:[/bold]")
     # Commit pref setup
     commit_format = typer.prompt("Default commit format (conventional, simple, detailed)", default=config.commit.format)
@@ -595,6 +624,7 @@ def setup_cmd():
 @app.command(name="config", help="View the current active configuration.")
 def config_cmd():
     from ace.core.config import get_config, DEFAULT_CONFIG_PATH
+    from ace.utils.i18n import get_language_name
     from rich.table import Table
 
     config = get_config()
@@ -610,6 +640,8 @@ def config_cmd():
     
     # Add items
     table.add_row("AI", "Provider", config.ai.provider)
+    lang_code = getattr(config.ai, "language", "en")
+    table.add_row("AI", "Output Language", f"{lang_code} ({get_language_name(lang_code)})")
     table.add_row("AI", "NVIDIA API Key", mask_key(config.ai.nvidia_api_key))
     table.add_row("AI", "NVIDIA Model", config.ai.nvidia_model)
     table.add_row("AI", "Ollama URL", config.ai.ollama_url)

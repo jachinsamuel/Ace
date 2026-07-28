@@ -56,8 +56,13 @@ class CommitGenerator:
             staged_diff=trim_diff(staged_diff, max_chars=25000)  # Cap diff to avoid context window limit
         )
 
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         messages = [
-            SystemMessage(content=system_prompt),
+            SystemMessage(content=system_prompt + lang_inst),
             HumanMessage(content=user_prompt)
         ]
 

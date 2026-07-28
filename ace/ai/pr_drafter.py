@@ -47,8 +47,13 @@ class PRDrafter:
             diff=diff_text.strip()
         )
 
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         messages = [
-            SystemMessage(content=PR_SYSTEM_PROMPT),
+            SystemMessage(content=PR_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
 

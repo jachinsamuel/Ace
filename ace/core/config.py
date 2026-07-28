@@ -20,6 +20,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "custom_api_key": "",
         "custom_api_base": "",
         "custom_model": "",
+        "language": "en",
     },
     "commit": {
         "format": "conventional",
@@ -59,11 +60,16 @@ class ConfigSection:
 
 class Config:
     def __init__(self, data: Dict[str, Any]):
-        self.ai = ConfigSection(data.get("ai", {}))
-        self.commit = ConfigSection(data.get("commit", {}))
-        self.review = ConfigSection(data.get("review", {}))
-        self.safety = ConfigSection(data.get("safety", {}))
-        self.aliases: Dict[str, str] = data.get("aliases", {})
+        merged_ai = {**DEFAULT_CONFIG.get("ai", {}), **data.get("ai", {})}
+        merged_commit = {**DEFAULT_CONFIG.get("commit", {}), **data.get("commit", {})}
+        merged_review = {**DEFAULT_CONFIG.get("review", {}), **data.get("review", {})}
+        merged_safety = {**DEFAULT_CONFIG.get("safety", {}), **data.get("safety", {})}
+
+        self.ai = ConfigSection(merged_ai)
+        self.commit = ConfigSection(merged_commit)
+        self.review = ConfigSection(merged_review)
+        self.safety = ConfigSection(merged_safety)
+        self.aliases: Dict[str, str] = data.get("aliases", DEFAULT_CONFIG.get("aliases", {}))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -122,6 +128,11 @@ def get_config() -> Config:
     env_provider = os.getenv("ACE_PROVIDER")
     if env_provider:
         data["ai"]["provider"] = env_provider
+
+    # Language
+    env_language = os.getenv("ACE_LANGUAGE")
+    if env_language:
+        data["ai"]["language"] = env_language
 
     # Nvidia API Key
     env_nvidia_key = os.getenv("NVIDIA_API_KEY")

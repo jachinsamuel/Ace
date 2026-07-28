@@ -42,8 +42,13 @@ class CodeReviewer:
                 diff_content=trim_diff(diff_content, max_chars=15000)  # Cap file diff size
             )
 
+            from ace.core.config import get_config
+            from ace.utils.i18n import get_language_instruction
+
+            lang_inst = get_language_instruction(get_config().ai.language)
+
             messages = [
-                SystemMessage(content=REVIEW_SYSTEM_PROMPT),
+                SystemMessage(content=REVIEW_SYSTEM_PROMPT + lang_inst),
                 HumanMessage(content=user_prompt)
             ]
 

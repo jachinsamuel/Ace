@@ -2,7 +2,7 @@
 def test_combo_setup_then_commit(git_workspace):
     # Pairwise: Config Wizard & Commit Generator
     # 1. Run setup to select 'simple' commit format (choice 2)
-    stdin_data = "2\nhttp://localhost:11434\nqwen-model\nsimple\nn\nn\n"
+    stdin_data = "2\nhttp://localhost:11434\nqwen-model\n1\nsimple\nn\nn\n"
     res_setup = git_workspace.run(["setup"], stdin_data=stdin_data)
     assert res_setup.returncode == 0
     

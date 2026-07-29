@@ -31,10 +31,6 @@ def strip_emojis(text: str) -> str:
     )
 
     cleaned = emoji_pattern.sub("", text)
-    # Replace multiple spaces/newlines with a single space (while preserving newlines if multi-line)
-    # To be safe for markdown summaries, we can just strip emojis and keep other formatting intact.
-    # Let's do a simple strip of double spaces that result from removing the emoji.
-    cleaned = re.sub(r' +', ' ', cleaned)
-    # Strip trailing whitespace on lines while preserving leading indentation
-    lines = [line.rstrip() for line in cleaned.splitlines()]
+    # Clean up double spaces per line and strip leading/trailing whitespace on lines
+    lines = [re.sub(r' +', ' ', line).strip() for line in cleaned.splitlines()]
     return "\n".join(lines).strip()

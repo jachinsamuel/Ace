@@ -162,6 +162,7 @@ def main(
     risk_level = parsed.get("risk_level", "safe")
 
     if not commands:
+        print_warning("No Git commands planned.")
         show_warning_panel(f"No actionable Git commands generated for: '{query}'\n{explanation}", "Empty Plan")
         return
 
@@ -170,7 +171,7 @@ def main(
     show_plan(commands, [explanation] + [""] * (len(commands) - 1))
 
     if dry_run:
-        print_info("Dry run specified. Skipping execution.")
+        print_info("Dry-run mode: execution skipped.")
         return
 
     # Evaluate safety for the full plan
@@ -197,7 +198,7 @@ def main(
         execute_plan = confirm("Execute plan?", default=True)
 
     if not execute_plan:
-        print_warning("Execution cancelled by user.")
+        print_info("Execution aborted.")
         return
 
     # Execute commands and capture output

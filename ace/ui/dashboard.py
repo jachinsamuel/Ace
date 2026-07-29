@@ -109,11 +109,12 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         )
 
         # ── Sibling repos panel ─────────────────────────────────────────────
-        parent_dir    = Path(git_ops.working_dir).parent
+        curr_working_path = Path(git_ops.working_dir).resolve()
+        parent_dir        = curr_working_path.parent
         sibling_repos: list[str] = []
         try:
             for p in parent_dir.iterdir():
-                if p.is_dir() and p != Path(git_ops.working_dir) and (p / ".git").exists():
+                if p.is_dir() and p.resolve() != curr_working_path and (p / ".git").exists():
                     sibling_repos.append(p.name)
         except (OSError, PermissionError):
             pass
@@ -152,8 +153,10 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         if status["staged"]:
             t = Table(show_header=False, box=None, padding=(0, 2))
             t.add_column()
-            for f in status["staged"]:
+            for f in status["staged"][:15]:
                 t.add_row(Text.assemble(("+ ", "bold #00E676"), (f, "#BDBDBD")))
+            if len(status["staged"]) > 15:
+                t.add_row(Text(f"  ... +{len(status['staged']) - 15} more files", style="dim #00E676"))
             console.print(Panel(t, title="[bold #00E676]Staged[/bold #00E676]",
                                 border_style="#00E676", box=box.SIMPLE, expand=False))
             console.print()
@@ -161,8 +164,10 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         if status["unstaged"]:
             t = Table(show_header=False, box=None, padding=(0, 2))
             t.add_column()
-            for f in status["unstaged"]:
+            for f in status["unstaged"][:15]:
                 t.add_row(Text.assemble(("~ ", "bold #FFD600"), (f, "#BDBDBD")))
+            if len(status["unstaged"]) > 15:
+                t.add_row(Text(f"  ... +{len(status['unstaged']) - 15} more files", style="dim #FFD600"))
             console.print(Panel(t, title="[bold #FFD600]Unstaged[/bold #FFD600]",
                                 border_style="#FFD600", box=box.SIMPLE, expand=False))
             console.print()
@@ -170,8 +175,10 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
         if status["untracked"]:
             t = Table(show_header=False, box=None, padding=(0, 2))
             t.add_column()
-            for f in status["untracked"]:
+            for f in status["untracked"][:15]:
                 t.add_row(Text.assemble(("? ", "dim #9E9E9E"), (f, "dim #9E9E9E")))
+            if len(status["untracked"]) > 15:
+                t.add_row(Text(f"  ... +{len(status['untracked']) - 15} more files", style="dim #9E9E9E"))
             console.print(Panel(t, title="[dim]Untracked[/dim]",
                                 border_style="#555555", box=box.SIMPLE, expand=False))
             console.print()
@@ -296,7 +303,7 @@ def _handle_switch_repo(git_ops: GitOps, parent_dir: Path) -> None:
 
     current_name = Path(git_ops.working_dir).name
     display_options = [
-        f"{name}  [bold #00E676](current)[/bold #00E676]" if name == current_name else name
+        f"{name} (current)" if name == current_name else name
         for name in all_repos
     ]
 

@@ -27,6 +27,9 @@ class GitOps:
 
     def get_status(self) -> Dict[str, List[str]]:
         """Get staged, unstaged, and untracked files."""
+        if self.repo.bare:
+            return {"staged": [], "unstaged": [], "untracked": []}
+            
         # Refresh index
         try:
             self.repo.index.update()
@@ -53,17 +56,26 @@ class GitOps:
                     staged.append(path)
         else:
             # Empty repo: any file in index is staged
-            staged = [entry[0] for entry in self.repo.index.entries.keys()]
+            try:
+                staged = [entry[0] for entry in self.repo.index.entries.keys()]
+            except Exception:
+                staged = []
                 
         # Unstaged files: diff between index and working copy
-        unstaged_diff = self.repo.index.diff(None)
-        for diff in unstaged_diff:
-            path = diff.b_path or diff.a_path
-            if path:
-                unstaged.append(path)
+        try:
+            unstaged_diff = self.repo.index.diff(None)
+            for diff in unstaged_diff:
+                path = diff.b_path or diff.a_path
+                if path:
+                    unstaged.append(path)
+        except Exception:
+            pass
                 
         # Untracked files
-        untracked = self.repo.untracked_files
+        try:
+            untracked = self.repo.untracked_files
+        except Exception:
+            untracked = []
         
         return {
             "staged": list(set(staged)),
@@ -77,12 +89,13 @@ class GitOps:
             # Diff between HEAD and index
             return self.repo.git.diff("--staged")
         except git.GitCommandError:
-            # Fallback if no commits exist
-            try:
-                # Diff index against an empty tree hash: 4b825dc642cb6eb9a0ff12e40d46a843d8110151
-                return self.repo.git.diff("--cached", "4b825dc642cb6eb9a0ff12e40d46a843d8110151")
-            except git.GitCommandError:
-                return ""
+            # Fallback if no commits exist (support SHA-1 and SHA-256 empty tree hashes)
+            for empty_tree in ("4b825dc642cb6eb9a0ff12e40d46a843d8110151", "4b825dc642cb6eb9a0ff12e40d46a843d8110151000000000000000000000000"):
+                try:
+                    return self.repo.git.diff("--cached", empty_tree)
+                except git.GitCommandError:
+                    continue
+            return ""
 
     def get_branch_diff(self, base: str) -> str:
         """Get the diff between the current branch and a base branch/commit."""
@@ -167,6 +180,7 @@ class GitOps:
         try:
             parts = shlex.split(command.strip())
         except ValueError:
+            # Fall back safely while preserving quoted items if possible
             parts = command.strip().split()
 
         if parts and parts[0] == "git":
@@ -178,14 +192,16 @@ class GitOps:
         subcommand = parts[0]
         args = parts[1:]
 
+        # Block calling internal GitPython class methods or private attributes via getattr
+        method_name = subcommand.replace("-", "_")
+        if method_name.startswith("_") or method_name in ("execute", "custom_environment", "transform_kwargs", "version"):
+            return self.repo.git.execute(["git", subcommand] + args)
+
         try:
-            git_func = getattr(self.repo.git, subcommand.replace("-", "_"))
-            return git_func(*args)
-        except AttributeError:
-            try:
-                return self.repo.git.execute(["git", subcommand] + args)
-            except Exception as e:
-                raise ValueError(f"Failed to execute Git command '{command}': {e}")
+            if hasattr(self.repo.git, method_name) and callable(getattr(self.repo.git, method_name)):
+                git_func = getattr(self.repo.git, method_name)
+                return git_func(*args)
+            return self.repo.git.execute(["git", subcommand] + args)
         except Exception as e:
             raise ValueError(f"Failed to execute Git command '{command}': {e}")
 

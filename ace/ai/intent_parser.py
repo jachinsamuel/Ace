@@ -35,16 +35,22 @@ class IntentParser:
             query=query
         )
         
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         messages = [
-            SystemMessage(content=INTENT_SYSTEM_PROMPT),
+            SystemMessage(content=INTENT_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=user_prompt)
         ]
         
         # Initialize and call LLM
         llm = get_llm(offline_override=offline)
-        response = llm.invoke(messages)
-        
-        raw_content = response.content.strip()
+        try:
+            response = llm.invoke(messages)
+            raw_content = response.content.strip()
+        except Exception as e:
+            raise IntentParserError(f"AI intent parsing failed: {e}")
         
         # Parse the output using shared utility
         try:

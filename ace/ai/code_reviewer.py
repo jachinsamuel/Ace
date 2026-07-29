@@ -56,11 +56,18 @@ class CodeReviewer:
                 response = llm.invoke(messages)
                 parsed = extract_json(response.content)
                 
-                # Extract score and findings
-                score = float(parsed.get("score", 10.0))
+                raw_score = parsed.get("score") if isinstance(parsed, dict) else 10.0
+                if raw_score is None:
+                    score = 10.0
+                else:
+                    try:
+                        score_str = str(raw_score).split("/")[0].strip()
+                        score = float(score_str)
+                    except (ValueError, TypeError):
+                        score = 10.0
                 scores.append(score)
                 
-                findings = parsed.get("findings", [])
+                findings = parsed.get("findings", []) if isinstance(parsed, dict) else []
                 if isinstance(findings, list):
                     for finding in findings:
                         # Annotate with the filename

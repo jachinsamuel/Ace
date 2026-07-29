@@ -89,5 +89,8 @@ class ChangelogGenerator:
             HumanMessage(content=user_prompt)
         ]
 
-        response = llm.invoke(messages)
-        return response.content.strip()
+        try:
+            response = llm.invoke(messages)
+            return response.content.strip()
+        except Exception as e:
+            return f"Failed to generate changelog: {e}"

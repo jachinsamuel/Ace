@@ -234,6 +234,23 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 max_tokens=2048,
             )
 
+    elif provider in ("google", "gemini"):
+        api_key = getattr(config.ai, "google_api_key", None) or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            primary_llm = DummyMissingKeyLLM(provider, "Google/Gemini API Key not found. Please set GOOGLE_API_KEY or GEMINI_API_KEY.")
+        else:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                model_name = getattr(config.ai, "google_model", None) or "gemini-1.5-flash"
+                primary_llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    google_api_key=api_key,
+                    temperature=0.0,
+                    max_output_tokens=2048,
+                )
+            except ImportError:
+                primary_llm = DummyMissingKeyLLM(provider, "langchain-google-genai is not installed. Run 'pip install langchain-google-genai'.")
+
     elif provider == "custom":
         api_key = config.ai.custom_api_key or os.getenv("CUSTOM_API_KEY")
         base_url = config.ai.custom_api_base or os.getenv("CUSTOM_API_BASE")

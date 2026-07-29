@@ -40,27 +40,38 @@ class RebaseHelper:
             commit_lines.append(f"- {c['hexsha'][:7]} - {c['summary']} (by {c['author']})")
         commit_list_text = "\n".join(commit_lines)
 
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         usr_prompt = USER_PROMPT_TEMPLATE.format(commit_list_text=commit_list_text)
         
         messages = [
-            SystemMessage(content=REBASE_SYSTEM_PROMPT),
+            SystemMessage(content=REBASE_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
 
         llm = get_llm(offline_override=offline)
-        response = llm.invoke(messages)
-        
-        return extract_json(response.content)
+        try:
+            response = llm.invoke(messages)
+            return extract_json(response.content)
+        except Exception as e:
+            return {"recommendations": [], "summary": f"Failed to analyze commits: {e}"}
 
     def run_auto_rebase(self, base_branch: str, recommendations: List[Dict[str, Any]]) -> str:
         """Execute programmatic interactive rebase using Python sequence and message editors."""
         action_map = {}
         reword_messages = {}
         for rec in recommendations:
+            if not isinstance(rec, dict) or "hexsha" not in rec:
+                continue
             sha = rec["hexsha"][:7].lower()
-            action_map[sha] = rec["action"].lower()
-            if rec["action"].lower() == "reword" and rec.get("new_message"):
-                reword_messages[rec["summary"].strip()] = rec["new_message"]
+            action = rec.get("action", "pick").lower()
+            action_map[sha] = action
+            if action == "reword" and rec.get("new_message"):
+                summary = rec.get("summary", "").strip()
+                if summary:
+                    reword_messages[summary] = rec["new_message"]
 
         # Create mapping JSON
         map_data = {

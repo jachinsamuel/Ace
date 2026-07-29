@@ -26,6 +26,7 @@ Ace is an intelligent command-line tool that brings AI assistance directly to yo
 ## Features
 
 *   **Natural Language Git Commands**: Translate commands like "undo my last commit but keep changes" or "create a branch login-page" into clean, standard Git actions.
+*   **Multi-Language / i18n Output**: Native multi-language support. Set `ACE_LANGUAGE="zh-CN"` or configure output language in `ace setup` to get all AI reviews, commit explanations, and diagnostics in your native language (Simplified/Traditional Chinese, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Russian, Hindi, and more).
 *   **AI-Powered Commits**: Analyzes staged diffs and generates Conventional Commit messages automatically.
 *   **Automated Code Review**: Rates code quality and points out bugs, security flaws, or styling issues inside staged or unstaged diffs.
 *   **Merge Conflict Resolution**: Interactively walks you through conflict blocks and suggests correct merges.
@@ -75,7 +76,7 @@ For Python command-line applications like Ace, it is highly recommended to insta
 
 ## Configuration and Setup
 
-Run the built-in configuration wizard to select your AI model provider:
+Run the built-in configuration wizard to select your AI model provider and target output language:
 ```bash
 ace setup
 ```
@@ -92,17 +93,22 @@ Uses cloud-hosted high-performance models.
 * You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
 * Default model: `meta/llama-3.3-70b-instruct`
 
-### 3. OpenAI
+### 3. Google / Gemini
+Uses Google Gemini models.
+* You will need a Google AI API key set as `GOOGLE_API_KEY` or `GEMINI_API_KEY`.
+* Default model: `gemini-1.5-flash`
+
+### 4. OpenAI
 Uses OpenAI GPT models.
 * You will need an OpenAI API key.
 * Default model: `gpt-4o-mini`
 
-### 4. Anthropic
+### 5. Anthropic
 Uses Anthropic Claude models.
 * You will need an Anthropic API key.
 * Default model: `claude-3-5-sonnet-latest`
 
-### 5. Custom OpenAI-Compatible
+### 6. Custom OpenAI-Compatible
 Allows using any custom endpoint that supports the OpenAI API schema (e.g. Groq, OpenRouter, Together AI).
 * You will need the provider's API key and custom API base URL (e.g. `https://api.groq.com/openai/v1`).
 * Default model: `custom-model`

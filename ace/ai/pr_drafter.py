@@ -57,10 +57,13 @@ class PRDrafter:
             HumanMessage(content=usr_prompt)
         ]
 
-        response = llm.invoke(messages)
-        parsed = extract_json(response.content)
+        try:
+            response = llm.invoke(messages)
+            parsed = extract_json(response.content)
+        except Exception as e:
+            raise Exception(f"AI PR drafting failed: {e}")
         
-        if "title" not in parsed or "body" not in parsed:
+        if not isinstance(parsed, dict) or "title" not in parsed or "body" not in parsed:
             raise Exception("AI response JSON missing 'title' or 'body' keys.")
             
         return parsed

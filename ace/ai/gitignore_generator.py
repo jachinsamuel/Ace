@@ -31,15 +31,22 @@ class GitignoreGenerator:
             current_gitignore=current_content.strip() or "(empty)"
         )
 
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         messages = [
-            SystemMessage(content=IGNORE_SYSTEM_PROMPT),
+            SystemMessage(content=IGNORE_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
 
-        response = llm.invoke(messages)
-        parsed = extract_json(response.content)
+        try:
+            response = llm.invoke(messages)
+            parsed = extract_json(response.content)
+        except Exception as e:
+            raise Exception(f"AI gitignore generation failed: {e}")
         
-        if "rules" not in parsed or "explanation" not in parsed:
+        if not isinstance(parsed, dict) or "rules" not in parsed or "explanation" not in parsed:
             raise Exception("AI response JSON missing 'rules' or 'explanation' keys.")
             
         return parsed

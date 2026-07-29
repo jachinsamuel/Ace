@@ -30,7 +30,11 @@ class HistoryAnalyzer:
 
         llm = get_llm(offline_override=offline)
         
-        sys_prompt = HISTORY_SUMMARY_SYSTEM_PROMPT.format(query=query, command=command)
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
+
+        sys_prompt = HISTORY_SUMMARY_SYSTEM_PROMPT.format(query=query, command=command) + lang_inst
         user_prompt = f"Raw Git Output:\n\"\"\"\n{command_output[:20000]}\n\"\"\""
 
         messages = [
@@ -39,8 +43,11 @@ class HistoryAnalyzer:
         ]
 
         from ace.utils.string_utils import strip_emojis
-        response = llm.invoke(messages)
-        return strip_emojis(response.content.strip())
+        try:
+            response = llm.invoke(messages)
+            return strip_emojis(response.content.strip())
+        except Exception as e:
+            return f"Failed to generate summary: {e}"
 
     def get_repo_stats(self) -> Dict[str, Any]:
         """
@@ -168,7 +175,10 @@ class HistoryAnalyzer:
 
         from ace.ai.prompts.search import SEARCH_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
         from ace.utils.json_utils import extract_json
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
 
+        lang_inst = get_language_instruction(get_config().ai.language)
         llm = get_llm(offline_override=offline)
         
         if len(commit_history_text) > 25000:
@@ -180,12 +190,15 @@ class HistoryAnalyzer:
         )
 
         messages = [
-            SystemMessage(content=SEARCH_SYSTEM_PROMPT),
+            SystemMessage(content=SEARCH_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
 
-        response = llm.invoke(messages)
-        return extract_json(response.content)
+        try:
+            response = llm.invoke(messages)
+            return extract_json(response.content)
+        except Exception:
+            return {"matches": []}
 
     def generate_standup(self, commits: list, offline: bool = False) -> str:
         """
@@ -201,16 +214,23 @@ class HistoryAnalyzer:
         commit_list_text = "\n".join(commit_lines)
 
         from ace.ai.prompts.standup import STANDUP_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+
+        lang_inst = get_language_instruction(get_config().ai.language)
         llm = get_llm(offline_override=offline)
         
         usr_prompt = USER_PROMPT_TEMPLATE.format(commit_list_text=commit_list_text)
         messages = [
-            SystemMessage(content=STANDUP_SYSTEM_PROMPT),
+            SystemMessage(content=STANDUP_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
         
-        response = llm.invoke(messages)
-        return response.content.strip()
+        try:
+            response = llm.invoke(messages)
+            return response.content.strip()
+        except Exception as e:
+            return f"Failed to generate standup: {e}"
 
     def analyze_blame(
         self,
@@ -225,6 +245,10 @@ class HistoryAnalyzer:
         Analyze why a specific line was written using LLM and commit patch info.
         """
         from ace.ai.prompts.blame import BLAME_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+
+        lang_inst = get_language_instruction(get_config().ai.language)
         llm = get_llm(offline_override=offline)
 
         usr_prompt = USER_PROMPT_TEMPLATE.format(
@@ -240,10 +264,13 @@ class HistoryAnalyzer:
         )
 
         messages = [
-            SystemMessage(content=BLAME_SYSTEM_PROMPT),
+            SystemMessage(content=BLAME_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
 
-        response = llm.invoke(messages)
-        return response.content.strip()
+        try:
+            response = llm.invoke(messages)
+            return response.content.strip()
+        except Exception as e:
+            return f"Failed to analyze line blame: {e}"
 

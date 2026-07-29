@@ -68,16 +68,18 @@ class CommitGenerator:
 
         # Get LLM and run inference
         llm = get_llm(offline_override=offline)
-        response = llm.invoke(messages)
+        try:
+            response = llm.invoke(messages)
+            message = response.content.strip()
+        except Exception as e:
+            raise Exception(f"AI commit message generation failed: {e}")
         
         # Clean response (remove extra leading/trailing whitespace or markdown fences)
-        message = response.content.strip()
-        if message.startswith("```"):
-            lines = message.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].startswith("```"):
-                lines = lines[:-1]
-            message = "\n".join(lines).strip()
+        import re
+        match = re.search(r"```(?:gitcommit|text)?\s*(.*?)\s*```", message, re.DOTALL)
+        if match:
+            message = match.group(1).strip()
+        else:
+            message = message.replace("```", "").strip()
             
         return message

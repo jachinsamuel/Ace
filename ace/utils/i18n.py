@@ -10,6 +10,9 @@ SUPPORTED_LANGUAGES: Dict[str, str] = {
     "es": "Spanish (Español)",
     "fr": "French (Français)",
     "de": "German (Deutsch)",
+    "it": "Italian (Italiano)",
+    "pt": "Portuguese (Português)",
+    "pt-BR": "Portuguese (Português - Brasil)",
     "ja": "Japanese (日本語)",
     "ko": "Korean (한국어)",
     "ru": "Russian (Русский)",
@@ -21,10 +24,24 @@ def normalize_language_code(code: str) -> str:
     if not code:
         return "en"
     clean = code.strip().lower()
+    if clean.startswith("en"):
+        return "en"
     if clean in ("zh", "zh-cn", "cn", "chinese"):
         return "zh-CN"
     if clean in ("zh-tw", "tw"):
         return "zh-TW"
+    if clean in ("pt-br", "pt_br"):
+        return "pt-BR"
+    if clean in ("pt", "portuguese"):
+        return "pt"
+    if clean in ("it", "italian"):
+        return "it"
+    if clean.startswith("de"):
+        return "de"
+    if clean.startswith("fr"):
+        return "fr"
+    if clean.startswith("es"):
+        return "es"
     return clean
 
 def get_language_name(code: str) -> str:

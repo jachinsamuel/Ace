@@ -1,3 +1,4 @@
+import copy
 import os
 import toml
 from pathlib import Path
@@ -60,16 +61,16 @@ class ConfigSection:
 
 class Config:
     def __init__(self, data: Dict[str, Any]):
-        merged_ai = {**DEFAULT_CONFIG.get("ai", {}), **data.get("ai", {})}
-        merged_commit = {**DEFAULT_CONFIG.get("commit", {}), **data.get("commit", {})}
-        merged_review = {**DEFAULT_CONFIG.get("review", {}), **data.get("review", {})}
-        merged_safety = {**DEFAULT_CONFIG.get("safety", {}), **data.get("safety", {})}
+        merged_ai = {**DEFAULT_CONFIG.get("ai", {}), **(data.get("ai") if isinstance(data.get("ai"), dict) else {})}
+        merged_commit = {**DEFAULT_CONFIG.get("commit", {}), **(data.get("commit") if isinstance(data.get("commit"), dict) else {})}
+        merged_review = {**DEFAULT_CONFIG.get("review", {}), **(data.get("review") if isinstance(data.get("review"), dict) else {})}
+        merged_safety = {**DEFAULT_CONFIG.get("safety", {}), **(data.get("safety") if isinstance(data.get("safety"), dict) else {})}
 
         self.ai = ConfigSection(merged_ai)
         self.commit = ConfigSection(merged_commit)
         self.review = ConfigSection(merged_review)
         self.safety = ConfigSection(merged_safety)
-        self.aliases: Dict[str, str] = data.get("aliases", DEFAULT_CONFIG.get("aliases", {}))
+        self.aliases: Dict[str, str] = data.get("aliases", DEFAULT_CONFIG.get("aliases", {})) if isinstance(data.get("aliases"), dict) else DEFAULT_CONFIG.get("aliases", {})
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -102,22 +103,23 @@ def load_config_file() -> Dict[str, Any]:
         except Exception:
             # Silently fallback if unable to write config (e.g. read-only system)
             pass
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
     try:
         with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
             file_data = toml.load(f)
         
         # Deep merge defaults with file config
-        merged = DEFAULT_CONFIG.copy()
-        for section, values in file_data.items():
-            if section in merged and isinstance(merged[section], dict) and isinstance(values, dict):
-                merged[section] = {**merged[section], **values}
-            else:
-                merged[section] = values
+        merged = copy.deepcopy(DEFAULT_CONFIG)
+        if isinstance(file_data, dict):
+            for section, values in file_data.items():
+                if section in merged and isinstance(merged[section], dict) and isinstance(values, dict):
+                    merged[section].update(values)
+                else:
+                    merged[section] = values
         return merged
     except Exception:
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
 def get_config() -> Config:
     """Load configuration with file settings and environment overrides."""

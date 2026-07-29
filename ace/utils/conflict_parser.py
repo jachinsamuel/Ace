@@ -32,6 +32,10 @@ def parse_conflict_file(content: str) -> List[Dict[str, Any]]:
             conflict_lines = [line]
             head_lines = []
             incoming_lines = []
+        elif line.startswith("|||||||"):
+            if in_conflict:
+                current_section = "base"
+                conflict_lines.append(line)
         elif line.startswith("======="):
             if in_conflict:
                 current_section = "incoming"

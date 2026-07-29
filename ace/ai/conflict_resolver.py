@@ -46,8 +46,12 @@ class ConflictResolver:
         llm = get_llm(offline_override=offline)
         suggestions = []
 
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
+
         for block in blocks:
-            sys_prompt = CONFLICT_SYSTEM_PROMPT.format(filename=file_path)
+            sys_prompt = CONFLICT_SYSTEM_PROMPT.format(filename=file_path) + lang_inst
             usr_prompt = USER_PROMPT_TEMPLATE.format(
                 head_content=block["head"],
                 incoming_content=block["incoming"]

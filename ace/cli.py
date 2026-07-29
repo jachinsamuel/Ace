@@ -83,7 +83,6 @@ def main(
     from ace.ai.llm_factory import get_llm, LLMConfigurationError
     from ace.core.safety import SafetyChecker
     from ace.ui.prompts import confirm
-
     # Intercept subcommand if the user typed an English sentence (e.g. 'ace add and commit')
     intercepted_query = None
     ALL_INTERCEPT_SUBCOMMANDS = (
@@ -100,12 +99,13 @@ def main(
                 break
         if sub_idx != -1:
             sub_args = sys.argv[sub_idx + 1:]
+            # Do NOT intercept if flag arguments like -m, --message, -b, etc. are passed directly to the subcommand
+            has_message_flag = any(a in ("-m", "--message", "-b", "--branch") for a in sys.argv)
             nl_indicators = {
-                "and", "with", "to", "the", "a", "an", "in", "on", "new", "my", "all",
-                "but", "yesterday", "last", "from", "for", "changed", "everything",
-                "changes", "repo", "repos", "commits", "files"
+                "and", "then", "with", "also"
             }
-            if any(arg.lower() in nl_indicators for arg in sub_args):
+            # Only intercept if explicit multi-action conjunctions are present and message flags are absent
+            if not has_message_flag and any(arg.lower() in nl_indicators for arg in sub_args):
                 query_parts = []
                 for arg in sys.argv[1:]:
                     if arg.startswith("-"):
@@ -138,80 +138,68 @@ def main(
 
         query = " ".join(ctx.args)
 
-    # Initialize GitOps
+    # ------------------------------------------------------------------
+    # Natural Language Command Execution Loop
+    # ------------------------------------------------------------------
     try:
         git_ops = GitOps()
     except NotAGitRepositoryError as e:
         show_error_panel(str(e), "Git Error")
         raise typer.Exit(code=1)
 
-    console.print(f"🧠 Understanding request: [italic]\"{query}\"[/italic]...")
+    # Initialize parser
     parser = IntentParser(git_ops)
 
     try:
-        get_llm(offline_override=offline)
-        with spinner("Planning Git commands..."):
+        with spinner("Analyzing request..."):
             parsed = parser.parse_intent(query, offline=offline)
-    except LLMConfigurationError as e:
-        show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
-        raise typer.Exit(code=1)
     except Exception as e:
-        show_error_panel(f"Failed to plan commands: {e}", "AI Error")
+        show_error_panel(f"Failed to parse request: {e}", "AI Error")
         raise typer.Exit(code=1)
 
     commands = parsed.get("commands", [])
     explanation = parsed.get("explanation", "")
+    risk_level = parsed.get("risk_level", "safe")
 
     if not commands:
-        print_warning("No Git commands planned.")
-        console.print(f"\n[bold]Explanation:[/bold] {explanation}\n")
-        raise typer.Exit(code=0)
+        show_warning_panel(f"No actionable Git commands generated for: '{query}'\n{explanation}", "Empty Plan")
+        return
 
-    # Show the proposed plan
+    # Display plan to user
     from ace.ui.display import show_plan
-    # Fill explanations list of matching length
     show_plan(commands, [explanation] + [""] * (len(commands) - 1))
 
-    # Evaluate safety for all planned commands
-    highest_risk = "safe"
-    risk_details = []
-    safer_alts = []
-    
+    if dry_run:
+        print_info("Dry run specified. Skipping execution.")
+        return
+
+    # Evaluate safety for the full plan
+    execute_plan = True
+    highest_risk = risk_level
+    risk_descriptions = []
+
     for cmd in commands:
-        r_level, r_desc, alt = SafetyChecker.analyze_command(cmd)
+        r_level, r_desc, _ = SafetyChecker.analyze_command(cmd)
         if r_level == "destructive":
             highest_risk = "destructive"
-            risk_details.append(f"[bold red]Command:[/] {cmd}\n[bold red]Risk:[/] {r_desc}")
-            if alt:
-                safer_alts.append(f"[bold green]Safer Alternative:[/] {alt}")
+            risk_descriptions.append(f"[bold]{cmd}[/bold]\n{r_desc}")
         elif r_level == "moderate" and highest_risk != "destructive":
             highest_risk = "moderate"
 
-    # Handle dry run
-    if dry_run:
-        print_info("Dry-run mode: execution skipped.")
-        raise typer.Exit(code=0)
+    from ace.core.config import get_config
+    config = get_config()
 
-    # Confirmation flow
-    if highest_risk == "destructive":
-        if yes:
-            print_warning("Executing destructive commands due to --yes flag.")
-        else:
-            show_warning_panel(
-                "\n\n".join(risk_details) + ("\n\n" + "\n".join(safer_alts) if safer_alts else ""),
-                "⚠️ DESTRUCTIVE OPERATION DETECTED"
-            )
-            if not confirm("Are you sure you want to execute these destructive commands?", default=False):
-                print_info("Execution aborted.")
-                raise typer.Exit(code=0)
-    elif highest_risk == "moderate":
-        if not yes:
-            if not confirm("Do you want to execute this plan?", default=True):
-                print_info("Execution aborted.")
-                raise typer.Exit(code=0)
-    # Safe commands execute directly
+    if highest_risk == "destructive" and config.safety.confirm_destructive:
+        desc_text = "\n\n".join(risk_descriptions)
+        show_warning_panel(f"The plan contains destructive operations:\n\n{desc_text}", "Destructive Operation Warning")
+        execute_plan = confirm("Are you sure you want to execute these commands?", default=False)
+    elif not yes:
+        execute_plan = confirm("Execute plan?", default=True)
 
-    # Execute commands
+    if not execute_plan:
+        print_warning("Execution cancelled by user.")
+        return
+
     # Execute commands and capture output
     outputs = []
     for cmd in commands:
@@ -1110,12 +1098,15 @@ def doctor_cmd(
     # Now call LLM for recommendations
     try:
         llm = get_llm(offline_override=offline)
+        from ace.core.config import get_config
+        from ace.utils.i18n import get_language_instruction
+        lang_inst = get_language_instruction(get_config().ai.language)
         
         diagnostics_json = json.dumps(report, indent=2)
         usr_prompt = USER_PROMPT_TEMPLATE.format(diagnostics_json=diagnostics_json)
         
         messages = [
-            SystemMessage(content=DOCTOR_SYSTEM_PROMPT),
+            SystemMessage(content=DOCTOR_SYSTEM_PROMPT + lang_inst),
             HumanMessage(content=usr_prompt)
         ]
         
@@ -1142,6 +1133,8 @@ def explain_cmd(
 ):
     from ace.ai.prompts.explain import EXPLAIN_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
     from ace.ai.llm_factory import get_llm, LLMConfigurationError
+    from ace.core.config import get_config
+    from ace.utils.i18n import get_language_instruction
     from langchain_core.messages import SystemMessage, HumanMessage
     from rich.markdown import Markdown
 
@@ -1152,9 +1145,10 @@ def explain_cmd(
         show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
         raise typer.Exit(code=1)
 
+    lang_inst = get_language_instruction(get_config().ai.language)
     usr_prompt = USER_PROMPT_TEMPLATE.format(query=query)
     messages = [
-        SystemMessage(content=EXPLAIN_SYSTEM_PROMPT),
+        SystemMessage(content=EXPLAIN_SYSTEM_PROMPT + lang_inst),
         HumanMessage(content=usr_prompt)
     ]
 
@@ -1208,6 +1202,8 @@ def undo_cmd(
 
     # 3. Call LLM to plan undo
     from ace.ai.prompts.undo import UNDO_SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+    from ace.core.config import get_config
+    from ace.utils.i18n import get_language_instruction
     from langchain_core.messages import SystemMessage, HumanMessage
     from ace.utils.json_utils import extract_json
 
@@ -1218,6 +1214,7 @@ def undo_cmd(
         show_error_panel(f"{str(e)}\n\nRun [bold]ace setup[/bold] to configure your AI credentials.", "Configuration Error")
         raise typer.Exit(code=1)
 
+    lang_inst = get_language_instruction(get_config().ai.language)
     usr_prompt = USER_PROMPT_TEMPLATE.format(
         git_state=git_state_desc,
         staged_files=staged,
@@ -1226,7 +1223,7 @@ def undo_cmd(
     )
 
     messages = [
-        SystemMessage(content=UNDO_SYSTEM_PROMPT),
+        SystemMessage(content=UNDO_SYSTEM_PROMPT + lang_inst),
         HumanMessage(content=usr_prompt)
     ]
 
@@ -1439,46 +1436,52 @@ def search_cmd(
             
             console.print(f"\nSelected Commit: [bold]{selected_sha}[/bold]")
             
-            # Show options
-            console.print("\n[bold]Select action:[/bold]")
-            def _key(k: str, desc: str) -> None:
-                from rich.text import Text
-                console.print(Text.assemble(
-                    ("  ", ""), (f"[{k}]", "bold #00D5FF"), (f"  {desc}", "#BDBDBD")
-                ))
-            _key("d", "View diff of this commit")
-            _key("c", "Checkout this commit (detached HEAD)")
-            _key("b", "Create and switch to a new branch here")
-            _key("s", "Skip / Quit")
+            # Show options loop
+            while True:
+                console.print("\n[bold]Select action:[/bold]")
+                def _key(k: str, desc: str) -> None:
+                    from rich.text import Text
+                    console.print(Text.assemble(
+                        ("  ", ""), (f"[{k}]", "bold #00D5FF"), (f"  {desc}", "#BDBDBD")
+                    ))
+                _key("d", "View diff of this commit")
+                _key("c", "Checkout this commit (detached HEAD)")
+                _key("b", "Create and switch to a new branch here")
+                _key("s", "Skip / Quit")
 
-            
-            action = click.getchar().lower().strip()
-            console.print(action)
-            console.print()
-            
-            if action == "d":
-                try:
-                    diff_data = git_ops.repo.git.show(selected_sha)
-                    from ace.ui.display import show_diff
-                    show_diff(diff_data)
-                except Exception as e:
-                    show_error_panel(f"Failed to fetch diff: {e}", "Git Error")
-            elif action == "c":
-                try:
-                    with spinner(f"Checking out commit {selected_sha[:7]}..."):
-                        git_ops.execute(f"checkout {selected_sha}")
-                    print_success(f"Checked out {selected_sha[:7]} (detached HEAD state).")
-                except Exception as e:
-                    show_error_panel(f"Checkout failed: {e}", "Git Error")
-            elif action == "b":
-                branch_name = click.prompt("Enter new branch name")
-                if branch_name.strip():
+                action = click.getchar().lower().strip()
+                console.print(action)
+                console.print()
+                
+                if action in ("s", "q", ""):
+                    break
+                elif action == "d":
                     try:
-                        with spinner(f"Creating branch '{branch_name}' at {selected_sha[:7]}..."):
-                            git_ops.execute(f"checkout -b {branch_name} {selected_sha}")
-                        print_success(f"Successfully created and switched to branch '{branch_name}'!")
+                        diff_data = git_ops.repo.git.show(selected_sha)
+                        from ace.ui.display import show_diff
+                        show_diff(diff_data)
                     except Exception as e:
-                        show_error_panel(f"Failed to create branch: {e}", "Git Error")
+                        show_error_panel(f"Failed to fetch diff: {e}", "Git Error")
+                elif action == "c":
+                    try:
+                        with spinner(f"Checking out commit {selected_sha[:7]}..."):
+                            git_ops.execute(f"checkout {selected_sha}")
+                        print_success(f"Checked out {selected_sha[:7]} (detached HEAD state).")
+                        break
+                    except Exception as e:
+                        show_error_panel(f"Checkout failed: {e}", "Git Error")
+                        break
+                elif action == "b":
+                    branch_name = click.prompt("Enter new branch name")
+                    if branch_name.strip():
+                        try:
+                            with spinner(f"Creating branch '{branch_name}' at {selected_sha[:7]}..."):
+                                git_ops.execute(f"checkout -b {branch_name} {selected_sha}")
+                            print_success(f"Successfully created and switched to branch '{branch_name}'!")
+                            break
+                        except Exception as e:
+                            show_error_panel(f"Failed to create branch: {e}", "Git Error")
+                            break
 
 def _execute_alias(alias_name: str, expanded_cmd: str):
     import shlex
@@ -1716,7 +1719,8 @@ def add_cmd(
         show_error_panel(str(e), "Git Error")
         raise typer.Exit(code=1)
 
-    files_str = " ".join(files)
+    quoted_files = [f'"{f}"' if " " in f and not (f.startswith('"') or f.startswith("'")) else f for f in files]
+    files_str = " ".join(quoted_files)
     try:
         with spinner(f"Staging changes for: {files_str}..."):
             res = git_ops.execute(f"add {files_str}")
@@ -1958,7 +1962,7 @@ def workspace_cmd(
         untracked = len(status.get("untracked", []))
         
         if staged == 0 and unstaged == 0 and untracked == 0:
-            status_desc = "[success]Clean[/success]"
+            status_desc = "[bold green]Clean[/bold green]"
         else:
             parts = []
             if staged > 0:
@@ -1978,7 +1982,7 @@ def workspace_cmd(
         if not tracking:
             sync_desc = "[#666666]No Upstream[/#666666]"
         elif ahead == 0 and behind == 0:
-            sync_desc = "[success]Up-to-date[/success]"
+            sync_desc = "[bold green]Up-to-date[/bold green]"
         elif ahead > 0 and behind == 0:
             sync_desc = f"[bold #00D5FF]Ahead {ahead}[/bold #00D5FF]"
         elif behind > 0 and ahead == 0:
@@ -2189,7 +2193,8 @@ def blame_cmd(
 
     # 3. Run git blame for this line
     try:
-        blame_output = git_ops.execute(f"blame -L {line},{line} -- {file}")
+        quoted_file = f'"{file}"' if " " in file and not (file.startswith('"') or file.startswith("'")) else file
+        blame_output = git_ops.execute(f"blame -L {line},{line} -- {quoted_file}")
         parts = blame_output.strip().split()
         if not parts:
             raise ValueError("Blame output is empty.")

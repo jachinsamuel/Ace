@@ -196,7 +196,7 @@ def main(
     from ace.core.config import get_config
     config = get_config()
 
-    if highest_risk == "destructive" and config.safety.confirm_destructive:
+    if highest_risk == "destructive" and config.safety.confirm_destructive and not yes:
         desc_text = "\n\n".join(risk_descriptions)
         show_warning_panel(f"The plan contains destructive operations:\n\n{desc_text}", "Destructive Operation Warning")
         execute_plan = confirm("Are you sure you want to execute these commands?", default=False)

@@ -78,6 +78,12 @@ def main(
         None, "--version", callback=version_callback, is_eager=True, help="Show the version and exit."
     ),
 ):
+    try:
+        from ace.utils.update_checker import check_for_updates
+        check_for_updates()
+    except Exception:
+        pass
+
     from ace.core.git_ops import GitOps, NotAGitRepositoryError
     from ace.ai.intent_parser import IntentParser
     from ace.ai.llm_factory import get_llm, LLMConfigurationError

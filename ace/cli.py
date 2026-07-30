@@ -282,6 +282,7 @@ def main(
 
 @app.command(name="commit", help="Generate a smart commit message from staged changes and commit.")
 def commit_cmd(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-accept generated commit message without interactive confirmation"),
     offline: bool = typer.Option(False, "--offline", help="Force Ollama offline mode"),
     format_override: Optional[str] = typer.Option(
         None, "--format", "-f", help="Override commit format (conventional, simple, detailed)"
@@ -300,6 +301,8 @@ def commit_cmd(
         prepare = None
     if not isinstance(offline, bool):
         offline = False
+    if not isinstance(yes, bool):
+        yes = False
 
     # Initialize GitOps
     try:
@@ -364,16 +367,19 @@ def commit_cmd(
 
         show_commit_message(msg)
 
-        # Prompt user for action
-        options = {
-            "\r": ("Accept & Commit", "Use this message and commit"),
-            "e": ("Edit", "Open message in editor"),
-            "r": ("Regenerate", "Generate a new message"),
-            "c": ("Switch format", "Switch to conventional/simple/detailed"),
-            "s": ("Skip", "Abort commit process"),
-        }
-        
-        choice = prompt_action(options, default_key="\r")
+        if yes:
+            choice = "\r"
+        else:
+            # Prompt user for action
+            options = {
+                "\r": ("Accept & Commit", "Use this message and commit"),
+                "e": ("Edit", "Open message in editor"),
+                "r": ("Regenerate", "Generate a new message"),
+                "c": ("Switch format", "Switch to conventional/simple/detailed"),
+                "s": ("Skip", "Abort commit process"),
+            }
+            
+            choice = prompt_action(options, default_key="\r")
         
         if choice == "\r":
             # Commit changes

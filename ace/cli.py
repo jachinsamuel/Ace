@@ -462,7 +462,7 @@ def commit_cmd(
                 selected_remote = default_rem
 
         # Prompt to set upstream
-        if confirm(f"No upstream remote branch set for '{current_branch}'. Push and set upstream to '{selected_remote}/{current_branch}'?", default=True):
+        if yes or confirm(f"No upstream remote branch set for '{current_branch}'. Push and set upstream to '{selected_remote}/{current_branch}'?", default=True):
             try:
                 with spinner(f"Pushing '{current_branch}' to {selected_remote} and setting upstream..."):
                     push_res = git_ops.push(remote=selected_remote, branch=current_branch, set_upstream=True)
@@ -474,7 +474,7 @@ def commit_cmd(
     else:
         # Upstream exists
         msg_push = f"Push to upstream branch '{upstream}'? (Your branch is {ahead} commit(s) ahead of remote)"
-        if confirm(msg_push, default=True):
+        if yes or confirm(msg_push, default=True):
             remote_name = upstream.split("/")[0] if "/" in upstream else "origin"
             try:
                 with spinner(f"Pushing to {upstream}..."):

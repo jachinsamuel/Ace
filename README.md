@@ -91,7 +91,7 @@ For a 100% private, offline, and free experience.
 ### 2. NVIDIA NIM API (Cloud)
 Uses cloud-hosted high-performance models.
 * You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
-* Default model: `meta/llama-3.3-70b-instruct`
+* Default model: `meta/llama-3.1-8b-instruct`
 
 ### 3. Google / Gemini
 Uses Google Gemini models.

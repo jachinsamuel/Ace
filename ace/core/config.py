@@ -11,7 +11,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "ai": {
         "provider": "nvidia",
         "nvidia_api_key": "",
-        "nvidia_model": "meta/llama-3.3-70b-instruct",
+        "nvidia_model": "meta/llama-3.1-8b-instruct",
         "ollama_model": "qwen2.5-coder:7b",
         "ollama_url": "http://localhost:11434",
         "openai_api_key": "",

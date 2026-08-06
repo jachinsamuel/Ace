@@ -81,5 +81,15 @@ class CommitGenerator:
             message = match.group(1).strip()
         else:
             message = message.replace("```", "").strip()
-            
+
+        # Remove leading conversational prefix lines (e.g., "commit", "commit:", "here is the commit message:")
+        lines = message.splitlines()
+        while lines:
+            first_line = lines[0].strip().lower()
+            if first_line in ("commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:") or first_line.startswith("here is the commit"):
+                lines.pop(0)
+            else:
+                break
+        message = "\n".join(lines).strip()
+
         return message

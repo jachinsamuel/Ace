@@ -76,17 +76,26 @@ class CommitGenerator:
         
         # Clean response (remove extra leading/trailing whitespace or markdown fences)
         import re
-        match = re.search(r"```(?:gitcommit|text)?\s*(.*?)\s*```", message, re.DOTALL)
+        match = re.search(r"```(?:gitcommit|text|markdown|json)?\s*(.*?)\s*```", message, re.DOTALL)
         if match:
             message = match.group(1).strip()
         else:
             message = message.replace("```", "").strip()
 
-        # Remove leading conversational prefix lines (e.g., "commit", "commit:", "here is the commit message:")
+        # Remove leading conversational/markdown prefix lines (e.g., "markdown", "commit", "commit:", "here is...")
         lines = message.splitlines()
+        junk_words = {
+            "commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:",
+            "markdown", "text", "gitcommit", "json", "yaml", "code", "subject:", "title:", "message:"
+        }
         while lines:
             first_line = lines[0].strip().lower()
-            if first_line in ("commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:") or first_line.startswith("here is the commit"):
+            if (
+                first_line in junk_words
+                or first_line.startswith("here is")
+                or first_line.startswith("sure")
+                or first_line.startswith("below is")
+            ):
                 lines.pop(0)
             else:
                 break

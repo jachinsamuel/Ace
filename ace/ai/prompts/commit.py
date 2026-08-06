@@ -21,14 +21,27 @@ Rules:
    - ci: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, Greenkeeper)
    - chore: Other changes that don't modify src or test files
 2. Scope is optional but highly recommended. It should represent the module or component affected (e.g., auth, api, db, ui, core). Use lowercase.
-3. Subject line must:
+3. Subject line MUST start with `<type>(<scope>): ` or `<type>: `. NEVER start with plain sentences like "Update README..." or "Added feature...".
+4. Subject line must:
    - Be under 72 characters
-   - Use the imperative, present tense: "change", not "changed" nor "changes"
-   - Don't capitalize the first letter of the subject
+   - Use imperative, present tense: "change", not "changed" nor "changes"
+   - Don't capitalize the first letter of the subject after the colon
    - Do not end with a period
-4. The body is optional but should be generated for non-trivial commits. It should list key bullet points describing specific details of what was changed. Use a blank line between the subject and the body.
-5. If you detect references to issue or ticket numbers in the branch name or files (e.g., issue-102, #102), include a line "Closes #102" at the end of the body.
-6. Do NOT include markdown code blocks (e.g. ```) in your output. Return only the raw commit message.
+5. The body is optional but should be generated for non-trivial commits. It should list key bullet points describing specific details of what was changed. Use a blank line between the subject and the body.
+6. Do NOT include markdown code blocks (e.g. ```) or conversational intro headers. Return ONLY the raw commit message.
+
+Examples of required output structure:
+
+Example 1:
+feat(ui): add cyber-snake game component
+
+- Implement energy orb collection logic
+- Add responsive touch controls for mobile devices
+
+Example 2:
+docs(readme): update project details and links
+
+- Refresh overview badges and links
 
 Context about the repository and the branch is provided below to help you choose the best type and scope.
 """.strip()

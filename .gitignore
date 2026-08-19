@@ -43,6 +43,12 @@ env/
 .coverage
 htmlcov/
 .cov/
+.ruff_cache/
+.mypy_cache/
+
+# Agent & Scratch Artifacts
+.agents/
+scratch/
 
 # OS-specific files
 desktop.ini

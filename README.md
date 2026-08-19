@@ -14,10 +14,9 @@ Author: Jachin Samuel <jachinsamuel007@gmail.com>
 [![Python Version](https://img.shields.io/pypi/pyversions/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
 [![License: MIT](https://img.shields.io/github/license/jachinsamuel/Ace.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/network/members)
 [![GitHub Issues](https://img.shields.io/github/issues/jachinsamuel/Ace.svg)](https://github.com/jachinsamuel/Ace/issues)
 
-Ace is an intelligent command-line tool that brings AI assistance directly to your Git workflow. Talk to Git in plain English — Ace translates your intents into Git commands, explains what it is doing, and runs them safely. It also features a fully interactive terminal user interface (TUI) dashboard to help manage your repositories with ease.
+Ace is an intelligent command-line copilot that brings AI assistance directly to your Git workflow. Talk to Git in plain English — Ace translates your intents into Git commands, explains what it is doing, and runs them safely. It also features universal Git command pass-through and an interactive terminal dashboard (TUI) to manage your repositories effortlessly.
 
 ![Ace CLI in action](media/cli_in_action.svg)
 
@@ -25,157 +24,139 @@ Ace is an intelligent command-line tool that brings AI assistance directly to yo
 
 ## Features
 
-*   **Natural Language Git Commands**: Translate commands like "undo my last commit but keep changes" or "create a branch login-page" into clean, standard Git actions.
-*   **Multi-Language / i18n Output**: Native multi-language support. Set `ACE_LANGUAGE="zh-CN"` or configure output language in `ace setup` to get all AI reviews, commit explanations, and diagnostics in your native language (Simplified/Traditional Chinese, Spanish, French, German, Italian, Portuguese, Japanese, Korean, Russian, Hindi, and more).
-*   **AI-Powered Commits**: Analyzes staged diffs and generates Conventional Commit messages automatically.
-*   **Automated Code Review**: Rates code quality and points out bugs, security flaws, or styling issues inside staged or unstaged diffs.
-*   **Merge Conflict Resolution**: Interactively walks you through conflict blocks and suggests correct merges.
-*   **Rich Repo Stats and Changelogs**: Instantly computes repository statistics (commits, additions, deletions, file counts) and generates markdown release notes since the last tag.
-*   **Semantic Commit Search & Checkout**: Search commits by natural language queries and interactively inspect diffs, checkout commits, or create branches.
-*   **Interactive TUI Dashboard**: Run `ace dash` to launch a terminal interface showing current status, branch info, workspace repository listings, and interactive menus.
-*   **Repository Health Diagnostics**: Run `ace doctor` to run repository health checks (detached heads, locks, large files) and generate step-by-step AI recovery advice.
-*   **Smart Git Hooks**: Run `ace hook install` to register pre-commit code review checks and prepare-commit-msg message drafting.
-*   **AI Auto-Squashing & Rebasing**: Run `ace squash` to automatically analyze branch commits and run automated interactive rebases.
-*   **Safety Features**: Classifies actions into safe, moderate, or destructive levels, and requests confirmation before running destructive operations.
+*   **Universal Git Pass-Through**: Run ANY standard Git command or custom Git extension directly through Ace (e.g. `ace status`, `ace log --oneline -n 10`, `ace checkout -b feature`, `ace push origin main`, `ace stash pop`).
+*   **Natural Language Git Commands**: Translate plain English requests like *"undo my last commit but keep changes"* or *"switch to a new branch called design-updates"* into clean, standard Git operations without needing quotes.
+*   **AI-Powered Conventional Commits**: Analyzes staged diffs and generates standardized Conventional Commit messages (`feat:`, `fix:`, `refactor:`, `docs:`, etc.) automatically across both cloud and local offline LLMs.
+*   **Custom Shortcuts & Aliases**: Create customized multi-command workflows with `ace alias` (e.g. `ace ship` runs `git add . && ace commit -y && git push`).
+*   **Automated Code Review**: Rates code quality on a 10-point scale and identifies bugs, security vulnerabilities, or performance bottlenecks in staged or unstaged diffs.
+*   **Interactive Merge Conflict Resolver**: Walks you step-by-step through conflicted files and provides AI-suggested 3-way merged blocks.
+*   **Multi-Language / i18n Output**: Localized AI explanations and commit suggestions in 15+ languages (English, Chinese, Spanish, French, German, Japanese, Korean, Hindi, and more).
+*   **Interactive TUI Dashboard (`ace dash`)**: Real-time terminal repository browser displaying branch status, commit logs, workspace navigation, and interactive menus.
+*   **Repository Health Doctor (`ace doctor`)**: Detects active lock files, detached HEAD states, and oversized untracked files with step-by-step AI recovery guidance.
+*   **AI Git Blame (`ace blame`)**: Inspects commit history and diff patches to explain *why* a specific line of code was written or modified.
+*   **Rich Repo Statistics (`ace stats`)**: Visualizes commit frequency charts, top contributors, and repository language/extension breakdowns.
+*   **Automated Release Changelogs (`ace changelog`)**: Compiles categorized release changelogs in Markdown since the previous tag.
+*   **Multi-Repo Daily Standups (`ace standup`)**: Generates structured summaries of your recent contributions across one or more repositories.
+*   **Smart Git Hooks (`ace hook`)**: One-command installation for pre-commit review checks and prepare-commit-msg AI drafting.
+*   **AI Branch Auto-Squashing (`ace squash`)**: Automatically analyzes commit histories and guides clean interactive rebases.
+*   **Built-in Safety System**: Classifies actions into safe, moderate, and destructive tiers with automatic stashing and interactive confirmation guards.
 
 ---
 
 ## Installation
 
 ### Option A: Install via standard pip (Recommended)
-You can install Ace globally using standard pip:
 ```bash
 pip install ace-git-copilot
 ```
-*Note: If you run into a `command not found` error, you can bypass your system PATH and run the tool directly through Python module execution:*
+
+*Note: You can also execute Ace directly through Python module execution:*
 ```bash
 python -m ace dash
 ```
 
-### Option B: Install via pipx (Alternative)
-For Python command-line applications like Ace, it is highly recommended to install using **pipx**. pipx automatically installs the application in an isolated environment and manages your system PATH so the executable works globally without conflict.
+### Option B: Install via pipx (Isolated Environment)
+[pipx](https://pypa.github.io/pipx/) installs the CLI in an isolated virtual environment and adds the binary globally:
 
-1. Install pipx and configure your system PATH (only needs to be done once):
-   ```bash
-   pip install pipx
-   pipx ensurepath
-   ```
-   *(Note: If `pipx ensurepath` modified your path, close your current terminal window and open a new one to apply).*
-
-2. Install Ace:
-   ```bash
-   pipx install ace-git-copilot
-   ```
-
-3. Run it directly:
-   ```bash
-   ace dash
-   ```
+```bash
+pip install pipx
+pipx ensurepath
+pipx install ace-git-copilot
+```
 
 ---
 
-## Configuration and Setup
+## Configuration and AI Providers
 
-Run the built-in configuration wizard to select your AI model provider and target output language:
+Launch the interactive configuration wizard:
 ```bash
 ace setup
 ```
-Ace saves your configuration file to `~/.ace/config.toml`. It supports the following AI model providers:
 
-### 1. Ollama (Local Models)
-For a 100% private, offline, and free experience.
-* Ensure [Ollama](https://ollama.com/) is installed and running on your system.
-* Default model: `qwen2.5-coder:7b`
-* If the selected model is not downloaded yet, Ace will automatically pull it for you during setup.
+Ace stores your configuration at `~/.ace/config.toml`. It supports 6 AI model backends:
 
-### 2. NVIDIA NIM API (Cloud)
-Uses cloud-hosted high-performance models.
-* You will need an NVIDIA developer API key. Get one for free at [NVIDIA build](https://build.nvidia.com/).
-* Default model: `meta/llama-3.1-8b-instruct`
+| Provider | Type | Default Model | Key / URL Setup |
+|:---|:---|:---|:---|
+| **NVIDIA NIM** | Cloud (Fast) | `meta/llama-3.1-8b-instruct` | `NVIDIA_API_KEY` (Free at [build.nvidia.com](https://build.nvidia.com/)) |
+| **Ollama** | Local (Private/Offline) | `qwen2.5-coder:7b` | `http://localhost:11434` (Auto-pulled) |
+| **Google Gemini** | Cloud | `gemini-1.5-flash` | `GOOGLE_API_KEY` / `GEMINI_API_KEY` |
+| **OpenAI** | Cloud | `gpt-4o-mini` | `OPENAI_API_KEY` |
+| **Anthropic** | Cloud | `claude-3-5-sonnet-latest` | `ANTHROPIC_API_KEY` |
+| **Custom OpenAI-Compatible** | Cloud / Self-hosted | `custom-model` | `CUSTOM_API_KEY` + `CUSTOM_API_BASE` |
 
-### 3. Google / Gemini
-Uses Google Gemini models.
-* You will need a Google AI API key set as `GOOGLE_API_KEY` or `GEMINI_API_KEY`.
-* Default model: `gemini-1.5-flash`
-
-### 4. OpenAI
-Uses OpenAI GPT models.
-* You will need an OpenAI API key.
-* Default model: `gpt-4o-mini`
-
-### 5. Anthropic
-Uses Anthropic Claude models.
-* You will need an Anthropic API key.
-* Default model: `claude-3-5-sonnet-latest`
-
-### 6. Custom OpenAI-Compatible
-Allows using any custom endpoint that supports the OpenAI API schema (e.g. Groq, OpenRouter, Together AI).
-* You will need the provider's API key and custom API base URL (e.g. `https://api.groq.com/openai/v1`).
-* Default model: `custom-model`
+You can also switch providers directly in the CLI:
+```bash
+ace config
+```
 
 ---
 
-## Usage
+## Usage Guide
 
-### Natural Language Mode
-
-You can speak to Git in plain English. There is no need to use double quotes — simply write your request directly:
+### 1. Plain-English Natural Language
+Speak to Git in plain English directly without quotes:
 ```bash
 ace stage everything and commit with a message about authentication
 ace undo my last commit but keep the files
 ace switch to a new branch called design-updates
 ```
-*(Double quotes are optional, e.g. `ace "stage everything and commit"`).*
 
-### Command-Line Toolchain
-Ace has dedicated subcommands for specific tasks. Here is the complete command list:
+### 2. Custom Shortcuts (`ace alias`)
+Run pre-configured shortcuts or define your own multi-step workflows:
+```bash
+# Run default shortcut (stages, commits with AI, and pushes)
+ace ship
 
-| Command | Shorthand | Description |
+# Create custom shortcut
+ace alias add deploy "git add . && ace commit -y && git push origin staging"
+
+# List all shortcuts
+ace alias list
+```
+
+### 3. Command-Line Reference
+
+| Command | Alias / Shorthand | Description |
 |:---|:---|:---|
-| `ace setup` | — | Launch the initial setup wizard to configure AI models. |
+| `ace setup` | — | Interactive setup wizard for model providers and language. |
 | `ace stage [files]` | `ace add` | Stage specific files or all untracked changes. |
-| `ace commit` | — | Generate Conventional Commit messages from diffs and commit. |
-| `ace review` | — | Run code review on staged, unstaged, or branch changes. |
-| `ace resolve` | — | Step-by-step interactive merge conflict resolver. |
-| `ace explain <query>`| — | Explain complex Git commands or repository errors. |
-| `ace doctor` | — | Run repository diagnostics and generate step-by-step AI recovery recipes. |
-| `ace hook <action>` | — | Install or uninstall pre-commit and prepare-commit-msg Git hooks. |
-| `ace stats` | — | Rich visualization of repo statistics, extension breakdowns, and history. |
-| `ace changelog` | — | Compile release changelogs since the last tag. |
-| `ace standup` | — | Generate a professional daily standup update based on your recent commits. |
-| `ace blame <file> <line>` | — | AI-powered Git blame: analyze who wrote a line and explain WHY they wrote it. |
+| `ace commit` | — | AI Conventional Commit generator (`-y` to skip confirmation). |
+| `ace review` | — | Run AI code review & quality scoring (`--strict` for pre-commit). |
+| `ace resolve` | — | Interactive 3-way merge conflict resolver. |
+| `ace explain <query>` | — | Explain Git concepts, error messages, or commands. |
+| `ace doctor` | — | Run repository diagnostics (locks, detached HEAD, large files). |
+| `ace hook <action>` | — | Install or uninstall pre-commit and prepare-commit-msg hooks. |
+| `ace stats` | — | Visualize repository activity, contributors, and extensions. |
+| `ace changelog` | — | Generate categorized release notes since last tag. |
+| `ace standup` | — | Generate structured daily standup report from recent commits. |
+| `ace blame <file> <line>`| — | Explain the purpose and context behind a specific line of code. |
 | `ace pr` | — | Draft a Markdown pull request title and description. |
-| `ace search <query>` | — | Semantically search commit history with interactive checkout options. |
-| `ace squash` | — | Automatically analyze commit history and run AI-guided interactive rebases. |
-| `ace ignore <rule>` | — | Generate and append standard templates to `.gitignore`. |
-| `ace alias <action>` | — | Manage custom command shortcuts (e.g. `ace alias add ship "git add . && ace commit -y"`). |
-| `ace undo` | — | Safely revert the last action after checking repository status. |
-| `ace workspace` | `ace ws` | Monitor status of multiple repositories and navigate between them. |
-| `ace dash` | — | Launch the interactive repository management console (TUI). |
-| `ace config` | — | Print out active configuration settings. |
-| `ace help` | — | Show user guide and help information on how to use Ace. |
+| `ace search <query>` | — | Semantically search commit history with interactive checkout. |
+| `ace squash` | — | Analyze branch history and perform AI-guided rebasing. |
+| `ace ignore <pattern>` | — | Generate and append rules to `.gitignore`. |
+| `ace alias <action>` | — | Manage custom command workflows (`list`, `add`, `remove`). |
+| `ace undo` | — | Safely roll back the previous Git action with automated safety checks. |
+| `ace workspace` | `ace ws` | Multi-repository cockpit to monitor workspace directories. |
+| `ace dash` | — | Launch the interactive Terminal User Interface (TUI). |
+| `ace config` | — | View active configuration settings and active provider. |
+| `ace help` | — | Display command reference and usage guide. |
 
 ---
 
 ## Interactive Terminal Dashboard (TUI)
 
-Launch the repository dashboard by running:
+Launch the repository management cockpit:
 ```bash
 ace dash
 ```
 
 ![Ace TUI Dashboard](media/dashboard.svg)
 
-The dashboard features:
-*   A start-up logo.
-*   Active branch info, tracking status, and repository charts.
-*   Interactive shortcuts for one-key commits, reviews, undos, and configuration management.
-
 ---
 
 ## Repository Statistics (`ace stats`)
 
-View beautiful contributor graphs, commit frequency charts, and file extension breakdowns:
+View visual commit timelines, contributor breakdowns, and file extension distributions:
 
 ![Ace Stats](media/stats.svg)
 

@@ -48,11 +48,14 @@ class RepoContext:
             ".ps1": "PowerShell",
         }
 
-        root_files = [f for f in working_dir.iterdir() if f.is_file()]
-        for file in root_files:
-            ext = file.suffix
-            if ext in extensions and extensions[ext] not in types:
-                types.append(extensions[ext])
+        try:
+            root_files = [f for f in working_dir.iterdir() if f.is_file()]
+            for file in root_files:
+                ext = file.suffix
+                if ext in extensions and extensions[ext] not in types:
+                    types.append(extensions[ext])
+        except Exception:
+            pass
 
         if not types:
             types.append("Unknown/Text")
@@ -61,9 +64,12 @@ class RepoContext:
 
     def check_merge_rebase_state(self) -> Dict[str, Any]:
         """Check if the repository is currently in a merge, rebase, or cherry-pick state."""
-        try:
-            git_dir = Path(self.git_ops.repo.git_dir)
-        except Exception:
+        git_dir = None
+        if hasattr(self.git_ops, "repo") and hasattr(self.git_ops.repo, "git_dir"):
+            val = getattr(self.git_ops.repo, "git_dir")
+            if isinstance(val, (str, Path)):
+                git_dir = Path(val)
+        if not git_dir:
             git_dir = Path(self.git_ops.working_dir) / ".git"
             
         state = {

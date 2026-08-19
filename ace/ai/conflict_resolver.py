@@ -113,7 +113,7 @@ class ConflictResolver:
                     norm_content = norm_content.replace(norm_block, replacement, 1)
                     # Restore Windows line endings if they were originally present
                     if "\r\n" in content:
-                        content = norm_content.replace("\n", "\r\n")
+                        content = norm_content.replace("\r\n", "\n").replace("\r", "").replace("\n", "\r\n")
                     else:
                         content = norm_content
                 else:

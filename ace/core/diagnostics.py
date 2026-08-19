@@ -8,7 +8,14 @@ class GitDiagnostics:
 
     def check_locks(self) -> List[str]:
         """Check for active git lock files that might block operations."""
-        git_dir = Path(self.git_ops.working_dir) / ".git"
+        git_dir = None
+        if hasattr(self.git_ops, "repo") and hasattr(self.git_ops.repo, "git_dir"):
+            val = getattr(self.git_ops.repo, "git_dir")
+            if isinstance(val, (str, Path)):
+                git_dir = Path(val)
+        if not git_dir:
+            git_dir = Path(self.git_ops.working_dir) / ".git"
+
         locks = []
         if not git_dir.exists():
             return locks
@@ -19,9 +26,12 @@ class GitDiagnostics:
             
         # Check refs locks
         refs_dir = git_dir / "refs"
-        if refs_dir.exists():
-            for p in refs_dir.rglob("*.lock"):
-                locks.append(str(p))
+        if refs_dir.exists() and refs_dir.is_dir():
+            try:
+                for p in refs_dir.rglob("*.lock"):
+                    locks.append(str(p))
+            except Exception:
+                pass
                 
         return locks
 
@@ -33,13 +43,16 @@ class GitDiagnostics:
         
         for file_rel in untracked:
             file_path = Path(self.git_ops.working_dir) / file_rel
-            if file_path.exists() and file_path.is_file():
-                size_mb = file_path.stat().st_size / (1024 * 1024)
-                if size_mb >= threshold_mb:
-                    large_files.append({
-                        "path": file_rel,
-                        "size_mb": round(size_mb, 2)
-                    })
+            try:
+                if file_path.exists() and file_path.is_file():
+                    size_mb = file_path.stat().st_size / (1024 * 1024)
+                    if size_mb >= threshold_mb:
+                        large_files.append({
+                            "path": file_rel,
+                            "size_mb": round(size_mb, 2)
+                        })
+            except Exception:
+                pass
         return large_files
 
     def run_diagnostics(self) -> Dict[str, Any]:

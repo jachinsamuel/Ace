@@ -22,14 +22,14 @@ def extract_json(text: str) -> Any:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         # Try to find a JSON object {...} or JSON array [...] substring
-        obj_match = re.search(r"(\{.*\})", cleaned, re.DOTALL)
+        obj_match = re.search(r"(\{.*?\})", cleaned, re.DOTALL)
         if obj_match:
             try:
                 return json.loads(obj_match.group(1))
             except json.JSONDecodeError:
                 pass
         
-        arr_match = re.search(r"(\[.*\])", cleaned, re.DOTALL)
+        arr_match = re.search(r"(\[.*?\])", cleaned, re.DOTALL)
         if arr_match:
             try:
                 return json.loads(arr_match.group(1))

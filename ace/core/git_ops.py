@@ -195,13 +195,13 @@ class GitOps:
         # Block calling internal GitPython class methods or private attributes via getattr
         method_name = subcommand.replace("-", "_")
         if method_name.startswith("_") or method_name in ("execute", "custom_environment", "transform_kwargs", "version"):
-            return self.repo.git.execute(["git", subcommand] + args)
+            return self.repo.git.execute([subcommand] + args)
 
         try:
             if hasattr(self.repo.git, method_name) and callable(getattr(self.repo.git, method_name)):
                 git_func = getattr(self.repo.git, method_name)
                 return git_func(*args)
-            return self.repo.git.execute(["git", subcommand] + args)
+            return self.repo.git.execute([subcommand] + args)
         except Exception as e:
             raise ValueError(f"Failed to execute Git command '{command}': {e}")
 

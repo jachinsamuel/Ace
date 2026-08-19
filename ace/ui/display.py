@@ -97,8 +97,12 @@ def show_warning_panel(message: str, title: str = "Warning") -> None:
     """Show a styled amber warning panel."""
     from rich.panel import Panel
     from rich import box
+    try:
+        body = Text.from_markup(message)
+    except Exception:
+        body = Text(message)
     panel = Panel(
-        Text.from_markup(message),
+        body,
         title=f"[bold #FFD600] ! {title}[/bold #FFD600]",
         border_style="#FFD600",
         box=box.ROUNDED,
@@ -115,9 +119,13 @@ def show_error_panel(message: str, title: str = "Error") -> None:
     from rich import box
     
     cleaned_message = clean_error_message(message)
+    try:
+        body = Text.from_markup(cleaned_message)
+    except Exception:
+        body = Text(cleaned_message)
     
     panel = Panel(
-        Text.from_markup(cleaned_message),
+        body,
         title=f"[bold #FF1744] {_SYM_ERROR} {title}[/bold #FF1744]",
         border_style="#FF1744",
         box=box.ROUNDED,

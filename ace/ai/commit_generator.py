@@ -101,4 +101,33 @@ class CommitGenerator:
                 break
         message = "\n".join(lines).strip()
 
+        # Ensure Conventional Commit format on subject line (especially for local Ollama models)
+        if format_type == "conventional" and message:
+            msg_lines = message.splitlines()
+            first_line = msg_lines[0].strip()
+            
+            # Conventional commit regex pattern: <type>(<scope>): <subject> or <type>: <subject>
+            conv_pattern = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\([a-zA-Z0-9_\-/\.]+\))?!?: .+"
+            if not re.match(conv_pattern, first_line):
+                lower_first = first_line.lower()
+                staged_files = status.get("staged", [])
+                
+                if any(f.endswith((".md", ".rst", ".txt")) for f in staged_files):
+                    inferred_type = "docs"
+                elif any("test" in f.lower() for f in staged_files):
+                    inferred_type = "test"
+                elif any(f.startswith((".github", "Dockerfile", "pyproject.toml")) for f in staged_files):
+                    inferred_type = "build"
+                elif any(k in lower_first for k in ("fix", "bug", "error", "repair", "resolve", "correct")):
+                    inferred_type = "fix"
+                elif any(k in lower_first for k in ("refactor", "clean", "simplify", "restructure", "optimize")):
+                    inferred_type = "refactor"
+                else:
+                    inferred_type = "feat"
+                
+                # Un-capitalize first letter of subject
+                subj = first_line[0].lower() + first_line[1:] if first_line else first_line
+                msg_lines[0] = f"{inferred_type}: {subj}"
+                message = "\n".join(msg_lines).strip()
+
         return message

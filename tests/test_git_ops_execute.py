@@ -31,7 +31,7 @@ def test_git_ops_execute_unknown_command():
     
     res = git_ops.execute("nonexistent -a --foo")
     assert res == "executed custom"
-    mock_execute.assert_called_once_with(["git", "nonexistent", "-a", "--foo"])
+    mock_execute.assert_called_once_with(["nonexistent", "-a", "--foo"])
 
 def test_git_ops_execute_empty():
     git_ops = GitOps.__new__(GitOps)

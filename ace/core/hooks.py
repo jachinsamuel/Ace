@@ -1,4 +1,5 @@
 import os
+import sys
 import stat
 from pathlib import Path
 from ace.core.git_ops import GitOps
@@ -6,16 +7,24 @@ from ace.core.git_ops import GitOps
 class GitHooksManager:
     def __init__(self, git_ops: GitOps):
         self.git_ops = git_ops
-        self.hooks_dir = Path(git_ops.working_dir) / ".git" / "hooks"
+        git_dir = None
+        if hasattr(git_ops, "repo") and hasattr(git_ops.repo, "git_dir"):
+            val = getattr(git_ops.repo, "git_dir")
+            if isinstance(val, (str, Path)):
+                git_dir = Path(val)
+        if not git_dir:
+            git_dir = Path(git_ops.working_dir) / ".git"
+        self.hooks_dir = git_dir / "hooks"
 
     def install_pre_commit(self) -> str:
         """Install pre-commit hook that runs code review."""
         self.hooks_dir.mkdir(parents=True, exist_ok=True)
         hook_path = self.hooks_dir / "pre-commit"
         
-        content = """#!/bin/sh
+        python_exe = sys.executable.replace("\\", "/")
+        content = f"""#!/bin/sh
 echo "🧠 Running Ace pre-commit code review..."
-python -m ace review --strict
+"{python_exe}" -m ace review --strict
 if [ $? -ne 0 ]; then
   echo "❌ Ace Code Review detected critical issues. Commit aborted."
   exit 1
@@ -33,11 +42,12 @@ fi
         self.hooks_dir.mkdir(parents=True, exist_ok=True)
         hook_path = self.hooks_dir / "prepare-commit-msg"
         
-        content = """#!/bin/sh
+        python_exe = sys.executable.replace("\\", "/")
+        content = f"""#!/bin/sh
 # Do not generate if commit message is already provided (e.g. git commit -m)
 if [ -z "$2" ]; then
   echo "🧠 Ace is drafting commit message..."
-  python -m ace commit --prepare "$1"
+  "{python_exe}" -m ace commit --prepare "$1"
 fi
 """
         hook_path.write_text(content, encoding="utf-8")

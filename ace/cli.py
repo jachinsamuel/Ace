@@ -217,12 +217,16 @@ def main(
                 try:
                     commit_cmd(offline=offline)
                     outputs.append("Smart commit executed successfully.")
+                except (typer.Exit, typer.Abort):
+                    outputs.append("Smart commit completed.")
                 except Exception as e:
                     show_error_panel(f"Failed to run smart commit: {e}", "Ace Error")
                     raise typer.Exit(code=1)
             elif subcmd.startswith("review"):
                 try:
                     review_cmd(all_changes=True, offline=offline)
+                    outputs.append("Code review completed.")
+                except (typer.Exit, typer.Abort):
                     outputs.append("Code review completed.")
                 except Exception as e:
                     show_error_panel(f"Failed to run code review: {e}", "Ace Error")
@@ -1070,7 +1074,7 @@ def doctor_cmd(
     # Detached head status
     table.add_row(
         "Branch Head",
-        "[bold green]OK[/bold green] (Branch: " + (report["sync_status"]["branch"]) + ")"
+        "[bold green]OK[/bold green] (Branch: " + (str(report["sync_status"]["branch"] or "unknown")) + ")"
         if not report["detached_head"]
         else "[bold red]Detached HEAD[/bold red]"
     )
@@ -1515,9 +1519,10 @@ def _execute_alias(alias_name: str, expanded_cmd: str):
             sub_args = shlex.split(sub[4:])
             try:
                 app(sub_args)
-            except SystemExit as e:
-                if e.code != 0:
-                    raise typer.Exit(code=e.code)
+            except (SystemExit, typer.Exit, typer.Abort) as e:
+                code = getattr(e, "code", getattr(e, "exit_code", 0))
+                if code not in (None, 0):
+                    raise typer.Exit(code=code)
             except Exception as e:
                 show_error_panel(f"Alias command '{sub}' failed: {e}", "Alias Execution Error")
                 raise typer.Exit(code=1)
@@ -1775,7 +1780,7 @@ def squash_cmd(
     if not base:
         tracking = git_ops.get_upstream_tracking()
         if tracking:
-            base = tracking.split("/")[0] if "/" in tracking else tracking
+            base = tracking
         else:
             branches = git_ops.get_branches()
             if "main" in branches:
@@ -2136,7 +2141,7 @@ def standup_cmd(
                 pass
         
         try:
-            repo_commits = git_ops.get_log(since=since_arg, author=author_name)
+            repo_commits = git_ops.get_log(n=200, since=since_arg, author=author_name)
             for c in repo_commits:
                 c["repo_name"] = repo_name
                 all_commits.append(c)
@@ -2218,19 +2223,29 @@ def blame_cmd(
         raise typer.Exit(code=1)
 
     # 4. Get commit details and full diff patch
-    try:
-        commit = git_ops.repo.commit(commit_hash)
+    if commit_hash.startswith("0000000"):
         commit_info = {
-            "hexsha": commit.hexsha,
-            "author": commit.author.name,
-            "date": commit.committed_datetime.isoformat(),
-            "summary": commit.summary,
-            "message": commit.message,
+            "hexsha": commit_hash,
+            "author": "Not Committed Yet",
+            "date": "Present",
+            "summary": "Uncommitted local modification",
+            "message": "Uncommitted local modification",
         }
-        commit_show_output = git_ops.execute(f"show -p {commit_hash} -- {file}")
-    except Exception as e:
-        show_error_panel(f"Failed to fetch commit details for '{commit_hash}': {e}", "Git Error")
-        raise typer.Exit(code=1)
+        commit_show_output = f"Uncommitted modification at line {line} in {file}"
+    else:
+        try:
+            commit = git_ops.repo.commit(commit_hash)
+            commit_info = {
+                "hexsha": commit.hexsha,
+                "author": commit.author.name,
+                "date": commit.committed_datetime.isoformat(),
+                "summary": commit.summary,
+                "message": commit.message,
+            }
+            commit_show_output = git_ops.execute(f'show -p {commit_hash} -- "{file}"')
+        except Exception as e:
+            show_error_panel(f"Failed to fetch commit details for '{commit_hash}': {e}", "Git Error")
+            raise typer.Exit(code=1)
 
     # 5. Run LLM blame analysis
     analyzer = HistoryAnalyzer(git_ops)

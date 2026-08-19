@@ -8,6 +8,10 @@ Format structure:
 
 <body>
 
+CRITICAL REQUIREMENT:
+The VERY FIRST LINE of your response MUST begin with a conventional commit prefix (e.g. `feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `chore:`, `perf:`).
+NEVER output plain titles or sentences like "Update Reactor Arc Visualization" without a type prefix.
+
 Rules:
 1. Type must be one of the following:
    - feat: A new feature

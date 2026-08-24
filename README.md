@@ -45,7 +45,21 @@ Ace is an intelligent command-line copilot that brings AI assistance directly to
 
 ## Installation
 
-### Option A: Install via standard pip (Recommended)
+### Option A: Quick 1-Line Installer (Recommended)
+
+**Linux & macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/jachinsamuel/Ace/master/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/jachinsamuel/Ace/master/install.ps1 | iex
+```
+
+---
+
+### Option B: Install via standard pip
 ```bash
 pip install ace-git-copilot
 ```
@@ -55,13 +69,13 @@ pip install ace-git-copilot
 python -m ace dash
 ```
 
-### Option B: Install via pipx (Isolated Environment)
-[pipx](https://pypa.github.io/pipx/) installs the CLI in an isolated virtual environment and adds the binary globally:
-
+### Option C: Install via pipx / uv (Isolated)
 ```bash
-pip install pipx
-pipx ensurepath
+# via pipx
 pipx install ace-git-copilot
+
+# or via uv
+uv tool install ace-git-copilot
 ```
 
 ---

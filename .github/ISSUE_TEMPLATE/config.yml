@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question or Discuss Ideas
+    url: https://github.com/jachinsamuel/Ace/discussions
+    about: Ask questions, share workflows, and discuss with other Ace users.
+  - name: 📖 Documentation & Setup Guide
+    url: https://github.com/jachinsamuel/Ace#readme
+    about: Read the official documentation and configuration options.

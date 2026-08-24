@@ -1,0 +1,37 @@
+name: 💡 Feature Request
+description: Suggest a new capability, AI prompt improvement, or CLI command for Ace
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new idea to make Ace better!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the friction or limitation you encounter.
+      placeholder: "e.g. I'm always frustrated when I want to..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the proposed solution
+      description: How should this feature work? (e.g. `ace release ...` or a new flag)
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: Any other tools, workarounds, or approaches you've tried.
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you be interested in contributing a Pull Request?
+      options:
+        - "Yes, I would like to submit a PR for this!"
+        - "Maybe with some guidance"
+        - "No, just proposing the idea"

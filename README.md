@@ -9,6 +9,7 @@ Author: Jachin Samuel <jachinsamuel007@gmail.com>
 ╚═╝  ╚═╝  ╚═════╝ ╚══════╝
 ```
 
+[![GitHub Release](https://img.shields.io/github/v/release/jachinsamuel/Ace?color=blue&label=release)](https://github.com/jachinsamuel/Ace/releases)
 [![PyPI Version](https://img.shields.io/pypi/v/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
 [![Python Version](https://img.shields.io/pypi/pyversions/ace-git-copilot.svg)](https://pypi.org/project/ace-git-copilot/)
@@ -173,6 +174,20 @@ ace dash
 View visual commit timelines, contributor breakdowns, and file extension distributions:
 
 ![Ace Stats](media/stats.svg)
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=jachinsamuel/Ace&type=Date)](https://star-history.com/#jachinsamuel/Ace&Date)
+
+---
+
+## Contributing
+
+Contributions, bug reports, and feature requests are always welcome! Check out our [Contributing Guide](CONTRIBUTING.md) and [Issue Templates](.github/ISSUE_TEMPLATE) to get started.
+
+---
 
 ## License
 

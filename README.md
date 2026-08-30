@@ -92,7 +92,7 @@ Ace stores your configuration at `~/.ace/config.toml`. It supports 6 AI model ba
 
 | Provider | Type | Default Model | Key / URL Setup |
 |:---|:---|:---|:---|
-| **NVIDIA NIM** | Cloud (Fast) | `meta/llama-3.1-8b-instruct` | `NVIDIA_API_KEY` (Free at [build.nvidia.com](https://build.nvidia.com/)) |
+| **NVIDIA NIM** | Cloud (Fast) | `meta/llama-3.2-11b-vision-instruct` | `NVIDIA_API_KEY` (Free at [build.nvidia.com](https://build.nvidia.com/)) |
 | **Ollama** | Local (Private/Offline) | `qwen2.5-coder:7b` | `http://localhost:11434` (Auto-pulled) |
 | **Google Gemini** | Cloud | `gemini-1.5-flash` | `GOOGLE_API_KEY` / `GEMINI_API_KEY` |
 | **OpenAI** | Cloud | `gpt-4o-mini` | `OPENAI_API_KEY` |

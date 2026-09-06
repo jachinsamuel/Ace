@@ -67,7 +67,7 @@ def check_for_updates() -> None:
             from ace.ui.display import console
 
             console.print(
-                f"[dim yellow]💡 A new version of Ace is available: [bold]v{CURRENT_VERSION}[/bold] → [bold #00E676]v{latest_version}[/bold #00E676]. "
+                f"[dim yellow]› A new version of Ace is available: [bold]v{CURRENT_VERSION}[/bold] → [bold #00E676]v{latest_version}[/bold #00E676]. "
                 f"Run [bold cyan]pip install --upgrade ace-git-copilot[/bold cyan] to update.[/dim yellow]\n"
             )
         except Exception:

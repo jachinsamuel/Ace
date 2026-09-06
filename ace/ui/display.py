@@ -1,6 +1,17 @@
 import sys
 from contextlib import contextmanager
 from typing import List, Dict, Any
+
+# Ensure UTF-8 output encoding on Windows consoles
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from rich.console import Console
 from rich.text import Text
 from ace.ui.themes import get_rich_theme
@@ -186,8 +197,10 @@ def show_plan(commands: List[str], explanations: List[str]) -> None:
 
 # ─── Commit message ──────────────────────────────────────────────────────────
 
+# ─── Commit message ──────────────────────────────────────────────────────────
+
 def show_commit_message(message: str) -> None:
-    """Display a suggested commit message in a styled panel."""
+    """Display a suggested commit message in a styled panel with progress gauge."""
     import re
     from rich.panel import Panel
     from rich import box
@@ -197,22 +210,32 @@ def show_commit_message(message: str) -> None:
     body    = "\n".join(lines[1:]) if len(lines) > 1 else ""
 
     text = Text()
-    conv_match = re.match(r"^(\w+)(?:\(([^)]+)\))?(!?):(.*)$", subject)
+    conv_match = re.match(r"^(\w+)(?:\(([^)]+)\))?(!?):\s*(.*)$", subject)
     if conv_match:
         c_type, c_scope, c_breaking, c_desc = conv_match.groups()
-        text.append(c_type,         style="bold #00D5FF")
+        text.append(f" {c_type} ", style="bold black on #00D5FF")
         if c_scope:
-            text.append(f"({c_scope})",  style="bold #B388FF")
+            text.append(f" ({c_scope})", style="bold #B388FF")
         if c_breaking:
-            text.append("!",            style="bold #FF1744")
-        text.append(f":{c_desc}",   style="bold #00E676")
+            text.append(" !", style="bold #FF1744")
+        text.append(": ", style="dim #666666")
+        text.append(c_desc, style="bold white")
     else:
-        text.append(subject, style="bold #00E676")
+        text.append(subject, style="bold white")
 
     if body:
-        text.append("\n" + body, style="#BDBDBD")
+        text.append("\n\n")
+        for b_line in body.splitlines():
+            s_line = b_line.strip()
+            if s_line.startswith(("-", "*", "•")):
+                text.append("  ▪ ", style="bold #FF6D00")
+                text.append(s_line.lstrip("-*• ").strip() + "\n", style="#BDBDBD")
+            elif s_line:
+                text.append(f"  {s_line}\n", style="#9E9E9E")
+            else:
+                text.append("\n")
 
-    # Character-count indicator in subtitle
+    # Character-count indicator with visual gauge
     sub_len = len(subject)
     if sub_len <= 50:
         count_color = "#00E676"
@@ -221,10 +244,18 @@ def show_commit_message(message: str) -> None:
     else:
         count_color = "#FF1744"
 
+    # 10-bar progress gauge
+    progress = min(sub_len / 72.0, 1.0)
+    bar_width = 10
+    filled = int(progress * bar_width)
+    empty = bar_width - filled
+    gauge_bar = "━" * filled + ("╸" if empty > 0 else "") + "━" * max(0, empty - 1)
+
     subtitle = (
-        f"[#666666]chars:[/#666666] "
+        f"[dim #666666][[/dim #666666]"
+        f"[{count_color}]{gauge_bar}[/{count_color}] "
         f"[bold {count_color}]{sub_len}[/bold {count_color}]"
-        f"[#666666]/72[/#666666]"
+        f"[dim #666666]/72][/dim #666666]"
     )
 
     panel = Panel(
@@ -257,60 +288,85 @@ def show_diff(diff_text: str) -> None:
 # ─── Code review results ─────────────────────────────────────────────────────
 
 def show_review(findings: List[Dict[str, Any]], score: float) -> None:
-    """Display aggregated AI code review findings."""
+    """Display aggregated AI code review findings with visual scorecards."""
     from rich.syntax import Syntax
     from rich.panel import Panel
     from rich import box
 
-    # Score badge
-    if score >= 8:
-        score_style = "bold #00E676"
-    elif score >= 5:
-        score_style = "bold #FFD600"
+    # Calculate visual score rating bar
+    clamped_score = max(0.0, min(float(score), 10.0))
+    filled_blocks = int((clamped_score / 10.0) * 10)
+    score_blocks = "█" * filled_blocks + "░" * (10 - filled_blocks)
+
+    if clamped_score >= 8.5:
+        score_style = "#00E676"
+        verdict = "EXCELLENT QUALITY"
+    elif clamped_score >= 7.0:
+        score_style = "#00D5FF"
+        verdict = "SOLID CODEBASE"
+    elif clamped_score >= 5.0:
+        score_style = "#FFD600"
+        verdict = "NEEDS ATTENTION"
     else:
-        score_style = "bold #FF1744"
+        score_style = "#FF1744"
+        verdict = "CRITICAL ISSUES FOUND"
 
     console.print()
     console.print(
         Text.assemble(
-            ("  AI Code Review  ", "bold white on #1A237E"),
+            ("  ACE CODE REVIEW  ", "bold white on #1A237E"),
             ("  Score: ", "bold #9E9E9E"),
-            (f"{score}/10", score_style),
+            (f"{score_blocks} ", score_style),
+            (f"{clamped_score:.1f}/10", f"bold {score_style}"),
+            ("  ·  ", "dim #555555"),
+            (verdict, f"bold {score_style}"),
         )
     )
     console.print()
 
     if not findings:
-        print_success("No issues found — clean code!")
+        print_success("No issues detected — clean, production-ready code!")
         return
 
-    sev_sym = {
+    category_styles = {
+        "bug": ("#FF1744", "bold white on #B71C1C"),
+        "security": ("#FF1744", "bold white on #880E4F"),
+        "perf": ("#FFD600", "bold black on #FFD600"),
+        "performance": ("#FFD600", "bold black on #FFD600"),
+        "style": ("#B388FF", "bold black on #B388FF"),
+        "issue": ("#00D5FF", "bold black on #00D5FF"),
+    }
+
+    sev_icons = {
         "critical": ("✘", "bold #FF1744"),
         "warning":  ("⚠", "bold #FFD600"),
         "info":     ("›", "bold #00D5FF"),
     }
 
     for item in findings:
-        sev   = item.get("severity", "info").lower()
-        sym, sym_style = sev_sym.get(sev, (">>", "bold #00D5FF"))
+        sev = str(item.get("severity", "info")).lower()
+        sym, sym_style = sev_icons.get(sev, ("›", "bold #00D5FF"))
 
-        loc  = f"{item.get('file', '?')}:{item.get('line', '?')}"
-        cat  = item.get("category", "issue").upper()
+        loc = f"{item.get('file', '?')}:{item.get('line', '?')}"
+        raw_cat = str(item.get("category", "issue")).lower()
+        _, cat_pill_style = category_styles.get(raw_cat, ("#00D5FF", "bold black on #00D5FF"))
+
         desc = item.get("description", "")
         fix  = item.get("fix", "")
 
-        # Header row
+        # Header row with category pill and file location
         console.print(
             Text.assemble(
                 (f" {sym} ", sym_style),
-                (f"{cat}  ", "bold white"),
+                (f" {raw_cat.upper()} ", cat_pill_style),
+                ("  ", ""),
                 (loc, "underline #00D5FF"),
             )
         )
-        console.print(f"   [#BDBDBD]{desc}[/#BDBDBD]")
+        console.print(f"    [#BDBDBD]{desc}[/#BDBDBD]")
 
         if fix:
-            console.print("   [#666666]Suggested fix:[/#666666]")
+            console.print("    [dim #666666]Suggested fix:[/]")
             syntax = Syntax(
                 fix, "python",
                 theme="ansi_dark",
@@ -318,6 +374,6 @@ def show_review(findings: List[Dict[str, Any]], score: float) -> None:
                 word_wrap=True,
             )
             console.print(
-                Panel(syntax, border_style="#444444", box=box.SIMPLE, expand=False, padding=(0, 1))
+                Panel(syntax, border_style="#333333", box=box.ROUNDED, expand=False, padding=(0, 1))
             )
         console.print()

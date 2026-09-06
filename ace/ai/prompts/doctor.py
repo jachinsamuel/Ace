@@ -7,9 +7,9 @@ Your job is to analyze the Git repository diagnostic findings and compile a clea
 Output format:
 Your output must be formatted as markdown.
 Include:
-1. 🩺 **Diagnostics Assessment**: A brief explanation of the problems found.
-2. 📋 **Recovery Plan**: A step-by-step guide with instructions and standard code blocks (e.g. `git restore` or `git stash`) to resolve the issues.
-3. 💡 **Prevention Tip**: A short advice block on how to prevent this state in the future.
+1. **Diagnostics Assessment**: A brief explanation of the problems found.
+2. **Recovery Plan**: A step-by-step guide with instructions and standard code blocks (e.g. `git restore` or `git stash`) to resolve the issues.
+3. **Prevention Tip**: A short advice block on how to prevent this state in the future.
 
 Ensure all commands proposed are safe and exact. Avoid destructive operations without providing a clear stash/backup alternative first.
 """

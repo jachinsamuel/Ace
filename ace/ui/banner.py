@@ -53,12 +53,12 @@ def get_fire_banner_static() -> Text:
         text.append(line + "\n", style=f"bold {color}")
     return text
 
-def animate_fire_banner(duration_seconds: float = 1.2):
-    """Plays a flickering fire banner animation using Rich's Live render tool."""
+def animate_fire_banner(duration_seconds: float = 0.35):
+    """Plays a snappy flickering fire banner animation using Rich's Live render tool."""
     start_time = time.time()
     frame = 0
-    with Live(get_fire_frame(frame), console=console, refresh_per_second=12, auto_refresh=False) as live:
+    with Live(get_fire_frame(frame), console=console, refresh_per_second=20, auto_refresh=False) as live:
         while time.time() - start_time < duration_seconds:
-            time.sleep(0.08)
+            time.sleep(0.05)
             frame += 1
             live.update(get_fire_frame(frame), refresh=True)

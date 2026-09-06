@@ -499,11 +499,11 @@ def setup_cmd():
     
     click.clear()
     try:
-        animate_fire_banner(duration_seconds=1.2)
+        animate_fire_banner(duration_seconds=0.35)
     except Exception:
         pass
         
-    console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup![/bold orange3] 🚀\n")
+    console.print("[bold orange3]Welcome to Ace AI Git Copilot Setup[/bold orange3]\n")
     console.print("Configure your preferences and AI provider step-by-step.\n")
     
     config = get_config()
@@ -778,7 +778,7 @@ def resolve_cmd(
         print_success("No merge conflicts detected! Your workspace is clean.")
         raise typer.Exit(code=0)
 
-    console.print(f"\n[bold yellow]🔀 Merge conflicts found in {len(conflicts)} file(s):[/bold yellow]")
+    console.print(f"\n[bold yellow]⚠  Merge conflicts found in {len(conflicts)} file(s):[/bold yellow]")
     for f in conflicts:
         console.print(f"  - {f}")
     console.print()
@@ -817,7 +817,7 @@ def resolve_cmd(
             console.print("[bold cyan]>>>>>>> (Incoming Changes)[/bold cyan]\n")
             
             # Print AI suggestion
-            console.print("[bold orange3]🧠 AI Suggestion:[/bold orange3] Keep incoming/HEAD or merged?")
+            console.print("[bold orange3]› AI Suggestion:[/bold orange3] Keep incoming/HEAD or merged?")
             console.print(f"   [dim]{sugg['explanation']}[/dim]")
             console.print("\n[dim]Suggested Merged Content:[/dim]")
             console.print(Panel(sugg["suggested_merged"], border_style="dim"))
@@ -1062,7 +1062,7 @@ def doctor_cmd(
             
     # Print diagnostic summary table
     table = Table(
-        title="🩺 Git Diagnostics Status Report",
+        title="[bold white]Git Diagnostics Status Report[/bold white]",
         show_header=True,
         header_style="bold #FF6D00",
         box=box.ROUNDED,
@@ -1132,7 +1132,7 @@ def doctor_cmd(
             
         console.print(Panel(
             Markdown(response.content.strip()),
-            title="[bold white]🩺 AI Diagnostics & Recovery Report[/bold white]",
+            title="[bold white]AI Diagnostics & Recovery Report[/bold white]",
             border_style="#00D5FF",
             box=box.ROUNDED,
             expand=False,
@@ -1673,7 +1673,7 @@ def help_cmd():
     console.print(get_fire_banner_static())
     
     # Intro
-    console.print("[bold orange3]Ace AI Git Copilot — Help & User Guide[/bold orange3] 🚀")
+    console.print("[bold orange3]Ace AI Git Copilot — Help & User Guide[/bold orange3]")
     console.print("Ace is your AI-powered companion for Git. You can control Git either by running specific commands or by talking to Git in plain English!\n")
     
     # 2. Natural Language Usage Section
@@ -1685,7 +1685,7 @@ def help_cmd():
         "  [bold green]ace \"undo last commit but keep my changes staged\"[/bold green]\n\n"
         "Ace will analyze your request and repository state, formulate a command plan, explain what it will do, assess safety risks, and execute it upon your confirmation."
     )
-    console.print(Panel(nl_text, title="🗣️  Natural Language Interface", border_style="orange3", expand=False))
+    console.print(Panel(nl_text, title="[bold white]Natural Language Interface[/bold white]", border_style="orange3", expand=False))
     console.print()
     
     # 3. Core Commands Table
@@ -1717,7 +1717,7 @@ def help_cmd():
     
     # 4. Global options and tips
     tips_text = Text.from_markup(
-        "💡 [bold orange3]Tips & Tricks:[/bold orange3]\n"
+        "› [bold orange3]Tips & Tricks:[/bold orange3]\n"
         "• [bold]Dry Run[/bold]: Use [bold cyan]--dry-run[/bold cyan] or [bold cyan]-d[/bold cyan] with natural language queries to see the plan without executing.\n"
         "• [bold]Auto-Yes[/bold]: Use [bold cyan]--yes[/bold cyan] or [bold cyan]-y[/bold cyan] to automatically skip execution confirmations (except destructive operations).\n"
         "• [bold]Offline Mode[/bold]: Use [bold cyan]--offline[/bold cyan] to force Ace to run fallback local queries using Ollama.\n"
@@ -1818,7 +1818,7 @@ def squash_cmd(
 
     # Show proposed squash plan table
     table = Table(
-        title="🧠 Proposed Commit Squash Plan",
+        title="[bold white]Proposed Commit Squash Plan[/bold white]",
         show_header=True,
         header_style="bold #FF6D00",
         box=box.ROUNDED,

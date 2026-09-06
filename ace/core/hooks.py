@@ -23,10 +23,10 @@ class GitHooksManager:
         
         python_exe = sys.executable.replace("\\", "/")
         content = f"""#!/bin/sh
-echo "🧠 Running Ace pre-commit code review..."
+echo "› Running Ace pre-commit code review..."
 "{python_exe}" -m ace review --strict
 if [ $? -ne 0 ]; then
-  echo "❌ Ace Code Review detected critical issues. Commit aborted."
+  echo "✘ Ace Code Review detected critical issues. Commit aborted."
   exit 1
 fi
 """
@@ -46,7 +46,7 @@ fi
         content = f"""#!/bin/sh
 # Do not generate if commit message is already provided (e.g. git commit -m)
 if [ -z "$2" ]; then
-  echo "🧠 Ace is drafting commit message..."
+  echo "› Ace is drafting commit message..."
   "{python_exe}" -m ace commit --prepare "$1"
 fi
 """

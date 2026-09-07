@@ -63,6 +63,9 @@ irm https://raw.githubusercontent.com/jachinsamuel/Ace/master/install.ps1 | iex
 ### Option B: Install via standard pip
 ```bash
 pip install ace-git-copilot
+
+# Upgrade to the latest release
+pip install --upgrade ace-git-copilot
 ```
 
 *Note: You can also execute Ace directly through Python module execution:*

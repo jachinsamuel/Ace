@@ -210,52 +210,49 @@ def show_commit_message(message: str) -> None:
     body    = "\n".join(lines[1:]) if len(lines) > 1 else ""
 
     text = Text()
-    conv_match = re.match(r"^(\w+)(?:\(([^)]+)\))?(!?):\s*(.*)$", subject)
+    conv_match = re.match(r"^(\w+)(?:\(([^)]+)\))?(!?):(.*)$", subject)
     if conv_match:
         c_type, c_scope, c_breaking, c_desc = conv_match.groups()
-        text.append(f" {c_type} ", style="bold black on #00D5FF")
+        text.append(c_type,         style="bold #00D5FF")
         if c_scope:
-            text.append(f" ({c_scope})", style="bold #B388FF")
+            text.append(f"({c_scope})",  style="bold #B388FF")
         if c_breaking:
-            text.append(" !", style="bold #FF1744")
-        text.append(": ", style="dim #666666")
-        text.append(c_desc, style="bold white")
+            text.append("!",            style="bold #FF1744")
+        text.append(f":{c_desc}",   style="bold #00E676")
     else:
-        text.append(subject, style="bold white")
+        text.append(subject, style="bold #00E676")
 
     if body:
-        text.append("\n\n")
-        for b_line in body.splitlines():
-            s_line = b_line.strip()
-            if s_line.startswith(("-", "*", "•")):
-                text.append("  ▪ ", style="bold #FF6D00")
-                text.append(s_line.lstrip("-*• ").strip() + "\n", style="#BDBDBD")
-            elif s_line:
-                text.append(f"  {s_line}\n", style="#9E9E9E")
-            else:
-                text.append("\n")
+        text.append("\n" + body, style="#BDBDBD")
 
     # Character-count indicator with visual gauge
     sub_len = len(subject)
-    if sub_len <= 50:
-        count_color = "#00E676"
-    elif sub_len <= 72:
-        count_color = "#FFD600"
-    else:
-        count_color = "#FF1744"
-
-    # 10-bar progress gauge
-    progress = min(sub_len / 72.0, 1.0)
     bar_width = 10
-    filled = int(progress * bar_width)
-    empty = bar_width - filled
-    gauge_bar = "━" * filled + ("╸" if empty > 0 else "") + "━" * max(0, empty - 1)
+
+    if sub_len <= 50:
+        count_color = "#00E676"  # Spring green
+        filled = max(1, int((sub_len / 72.0) * bar_width))
+        empty = max(0, bar_width - filled)
+        head = "╸" if empty > 0 else ""
+        tail = "━" * max(0, empty - 1) if empty > 0 else ""
+        bar_markup = f"[#00E676]{'━' * max(0, filled - 1)}{head}[/][#333333]{tail}[/]"
+    elif sub_len <= 72:
+        count_color = "#FFD600"  # Neon amber
+        filled = max(1, int((sub_len / 72.0) * bar_width))
+        empty = max(0, bar_width - filled)
+        head = "╸" if empty > 0 else ""
+        tail = "━" * max(0, empty - 1) if empty > 0 else ""
+        bar_markup = f"[#FFD600]{'━' * max(0, filled - 1)}{head}[/][#333333]{tail}[/]"
+    else:
+        count_color = "#FF1744"  # Electric red
+        # Amber bar for 72 limit, red overflow indicator
+        bar_markup = "[#FFD600]━━━━━━━━[/][#FF1744]━━[/]"
 
     subtitle = (
-        f"[dim #666666][[/dim #666666]"
-        f"[{count_color}]{gauge_bar}[/{count_color}] "
+        f"[#666666][[/] "
+        f"{bar_markup} "
         f"[bold {count_color}]{sub_len}[/bold {count_color}]"
-        f"[dim #666666]/72][/dim #666666]"
+        f"[#666666]/72 ][/]"
     )
 
     panel = Panel(

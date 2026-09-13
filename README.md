@@ -28,6 +28,8 @@ Ace is an intelligent command-line copilot that brings AI assistance directly to
 *   **Universal Git Pass-Through**: Run ANY standard Git command or custom Git extension directly through Ace (e.g. `ace status`, `ace log --oneline -n 10`, `ace checkout -b feature`, `ace push origin main`, `ace stash pop`).
 *   **Natural Language Git Commands**: Translate plain English requests like *"undo my last commit but keep changes"* or *"switch to a new branch called design-updates"* into clean, standard Git operations without needing quotes.
 *   **AI-Powered Conventional Commits**: Analyzes staged diffs and generates standardized Conventional Commit messages (`feat:`, `fix:`, `refactor:`, `docs:`, etc.) automatically across both cloud and local offline LLMs.
+*   **Offline Smart Heuristic Fallback**: Gracefully degrades to local Ollama or smart heuristic file/diff classification when network connections fail or API endpoints time out.
+*   **Visual Commit Length Gauge**: Real-time two-tone progress gauge in commit dialogs enforcing the 50/72 character conventional commit standard.
 *   **Custom Shortcuts & Aliases**: Create customized multi-command workflows with `ace alias` (e.g. `ace ship` runs `git add . && ace commit -y && git push`).
 *   **Automated Code Review**: Rates code quality on a 10-point scale and identifies bugs, security vulnerabilities, or performance bottlenecks in staged or unstaged diffs.
 *   **Interactive Merge Conflict Resolver**: Walks you step-by-step through conflicted files and provides AI-suggested 3-way merged blocks.

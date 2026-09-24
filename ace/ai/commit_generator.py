@@ -1,3 +1,4 @@
+import re
 from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
 from ace.core.context import RepoContext
@@ -15,7 +16,6 @@ class NoStagedChangesError(Exception):
     pass
 
 def clean_commit_text(message: str) -> str:
-    import re
     # Clean response (remove extra leading/trailing whitespace or markdown fences)
     match = re.search(r"```(?:gitcommit|text|markdown|json)?\s*(.*?)\s*```", message, re.DOTALL)
     if match:

@@ -41,3 +41,26 @@ def test_clean_commit_caps_excessive_length():
     raw = "\n".join(lines)
     cleaned = clean_commit_text(raw)
     assert len(cleaned.splitlines()) <= 15
+
+def test_generate_message_fallback_type_formatting():
+    from unittest.mock import MagicMock, patch
+    from ace.ai.commit_generator import CommitGenerator
+
+    mock_git_ops = MagicMock()
+    mock_git_ops.get_status.return_value = {"staged": ["app/main.py"], "unstaged": [], "untracked": []}
+    mock_git_ops.get_staged_diff.return_value = "+ def hello(): pass"
+    mock_git_ops.working_dir = "."
+    mock_git_ops.get_log.return_value = []
+    mock_git_ops.get_current_branch.return_value = "main"
+    mock_git_ops.get_upstream_tracking.return_value = None
+    mock_git_ops.get_ahead_behind.return_value = {"ahead": 0, "behind": 0}
+
+    mock_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = "added new greeting function"
+    mock_llm.invoke.return_value = mock_response
+
+    with patch("ace.ai.commit_generator.get_llm", return_value=mock_llm):
+        generator = CommitGenerator(mock_git_ops)
+        msg = generator.generate_message(format_type="conventional")
+        assert msg == "feat: added new greeting function"

@@ -14,6 +14,59 @@ class NoStagedChangesError(Exception):
     """Raised when trying to generate a commit message but no changes are staged."""
     pass
 
+def clean_commit_text(message: str) -> str:
+    import re
+    # Clean response (remove extra leading/trailing whitespace or markdown fences)
+    match = re.search(r"```(?:gitcommit|text|markdown|json)?\s*(.*?)\s*```", message, re.DOTALL)
+    if match:
+        message = match.group(1).strip()
+    else:
+        message = message.replace("```", "").strip()
+
+    # Remove leading conversational/markdown prefix lines (e.g., "markdown", "commit", "commit:", "here is...")
+    lines = message.splitlines()
+    junk_words = {
+        "commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:",
+        "markdown", "text", "gitcommit", "json", "yaml", "code", "subject:", "title:", "message:"
+    }
+    while lines:
+        first_line = lines[0].strip().lower()
+        if (
+            first_line in junk_words
+            or first_line.startswith("here is")
+            or first_line.startswith("sure")
+            or first_line.startswith("below is")
+        ):
+            lines.pop(0)
+        else:
+            break
+
+    # Deduplicate repeating runaway lines or loops (common in smaller local models)
+    deduped_lines = []
+    seen_lines_count = {}
+    for line in lines:
+        trimmed = line.strip()
+        if not trimmed:
+            if deduped_lines and deduped_lines[-1] != "":
+                deduped_lines.append("")
+            continue
+
+        # Normalized version for comparison (strip bullets, numbering, whitespace, punctuation)
+        norm = re.sub(r"^[\*\-\•\d\.\s]+", "", trimmed).lower().strip()
+        norm = re.sub(r"[^\w\s]", "", norm)
+        if norm:
+            seen_lines_count[norm] = seen_lines_count.get(norm, 0) + 1
+            if seen_lines_count[norm] > 1:
+                continue
+
+        deduped_lines.append(line)
+
+    # Cap body length to prevent runaway generation (max 15 lines total)
+    if len(deduped_lines) > 15:
+        deduped_lines = deduped_lines[:15]
+
+    return "\n".join(deduped_lines).strip()
+
 class CommitGenerator:
     def __init__(self, git_ops: GitOps):
         self.git_ops = git_ops
@@ -74,32 +127,8 @@ class CommitGenerator:
         except Exception as e:
             raise Exception(f"AI commit message generation failed: {e}")
         
-        # Clean response (remove extra leading/trailing whitespace or markdown fences)
-        import re
-        match = re.search(r"```(?:gitcommit|text|markdown|json)?\s*(.*?)\s*```", message, re.DOTALL)
-        if match:
-            message = match.group(1).strip()
-        else:
-            message = message.replace("```", "").strip()
-
-        # Remove leading conversational/markdown prefix lines (e.g., "markdown", "commit", "commit:", "here is...")
-        lines = message.splitlines()
-        junk_words = {
-            "commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:",
-            "markdown", "text", "gitcommit", "json", "yaml", "code", "subject:", "title:", "message:"
-        }
-        while lines:
-            first_line = lines[0].strip().lower()
-            if (
-                first_line in junk_words
-                or first_line.startswith("here is")
-                or first_line.startswith("sure")
-                or first_line.startswith("below is")
-            ):
-                lines.pop(0)
-            else:
-                break
-        message = "\n".join(lines).strip()
+        # Clean response and filter runaway repetition loops
+        message = clean_commit_text(message)
 
         # Ensure Conventional Commit format on subject line (especially for local Ollama models)
         if format_type == "conventional" and message:

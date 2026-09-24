@@ -31,7 +31,10 @@ Rules:
    - Use imperative, present tense: "change", not "changed" nor "changes"
    - Don't capitalize the first letter of the subject after the colon
    - Do not end with a period
-5. The body is optional but should be generated for non-trivial commits. It should list key bullet points describing specific details of what was changed. Use a blank line between the subject and the body.
+5. The body is optional. When generated, it MUST consist of concise bullet points (maximum 3 to 6 bullet points total):
+   - NEVER write long paragraphs or narrative explanations like "This commit adds...".
+   - NEVER repeat lines, phrases, or bullet points. Each bullet point must be unique.
+   - Do NOT list every single function; summarize key architectural changes concisely.
 6. Do NOT include markdown code blocks (e.g. ```) or conversational intro headers. Return ONLY the raw commit message.
 
 Examples of required output structure:

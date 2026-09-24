@@ -96,7 +96,8 @@ def _get_ollama_llm(config) -> BaseChatModel:
         model=config.ai.ollama_model,
         base_url=base_url,
         temperature=0.0,
-        num_predict=2048,
+        repeat_penalty=1.15,
+        num_predict=1024,
     )
 
 class DummyMissingKeyLLM:

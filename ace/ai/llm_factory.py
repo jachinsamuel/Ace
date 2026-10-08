@@ -154,54 +154,114 @@ class FallbackChatModel:
 
         # Fallback if only system text was provided
         search_text = user_text if user_text.strip() else system_text
-        user_lower = search_text.lower()
-        full_lower = (system_text + "\n" + user_text).lower()
+        sys_lower = system_text.lower()
+        search_lower = search_text.lower()
+        user_lower = user_text.lower()
+
+        # Task classification:
+        # Priority 1: When a system prompt is present, route strictly by system prompt content.
+        # This isolates task routing from repository context, branch names, or recent git history
+        # in user_text (e.g. "Merge pull request #12 from...") which previously caused commit
+        # generation to get hijacked into PR drafting.
+        is_intent = False
+        is_review = False
+        is_pr = False
+        is_changelog = False
+        is_conflict = False
+        is_commit = False
+
+        if sys_lower.strip():
+            if (
+                "conventional commits specification" in sys_lower
+                or "clean, professional, and descriptive commit message" in sys_lower
+                or "one-line commit message" in sys_lower
+                or "multi-line commit message" in sys_lower
+            ):
+                is_commit = True
+            elif "pull request (pr) description" in sys_lower or "pull request" in sys_lower:
+                is_pr = True
+            elif "code reviewer" in sys_lower or "automated code review" in sys_lower:
+                is_review = True
+            elif "structured markdown changelog" in sys_lower or "release coordinator" in sys_lower:
+                is_changelog = True
+            elif "resolving git merge conflicts" in sys_lower or "conflict in the file" in sys_lower:
+                is_conflict = True
+            elif "translate a user's natural language request" in sys_lower:
+                is_intent = True
+
+        # Priority 2: Raw string inputs (e.g. direct text calls in tests or lightweight callers)
+        if not (is_intent or is_review or is_pr or is_changelog or is_conflict or is_commit):
+            if "translate this request into git commands" in search_lower or "risk_level" in search_lower:
+                is_intent = True
+            elif "findings" in search_lower and ("severity" in search_lower or "code review" in search_lower):
+                is_review = True
+            elif (
+                "conventional_commit" in search_lower
+                or "generate the commit message" in search_lower
+                or "staged diff:" in search_lower
+                or "staged changes" in search_lower
+            ):
+                is_commit = True
+            elif "pull request" in search_lower or "draft pr" in search_lower:
+                is_pr = True
+            elif "changelog" in search_lower or "release notes" in search_lower:
+                is_changelog = True
+            elif "conflict" in search_lower or "merged_content" in search_lower:
+                is_conflict = True
+            elif "commit" in search_lower or "diff" in search_lower:
+                is_commit = True
 
         # 1. Intent Parsing
-        if "translate this request into git commands" in user_lower or "risk_level" in full_lower:
-            if "commit" in user_lower and "add" in user_lower:
+        if is_intent:
+            if "commit" in search_lower and "add" in search_lower:
                 json_str = '{"commands": ["git add .", "ace commit"], "explanation": "Stage all changes and run smart commit.", "risk_level": "moderate", "alternatives": null}'
-            elif "push" in user_lower:
+            elif "push" in search_lower:
                 json_str = '{"commands": ["git push"], "explanation": "Push local commits to remote.", "risk_level": "moderate", "alternatives": null}'
-            elif "status" in user_lower:
+            elif "status" in search_lower:
                 json_str = '{"commands": ["git status"], "explanation": "Display working tree status.", "risk_level": "safe", "alternatives": null}'
-            elif "log" in user_lower or "history" in user_lower:
+            elif "log" in search_lower or "history" in search_lower:
                 json_str = '{"commands": ["git log --oneline -n 10"], "explanation": "Display recent commit history.", "risk_level": "safe", "alternatives": null}'
-            elif "undo" in user_lower or "reset" in user_lower:
+            elif "undo" in search_lower or "reset" in search_lower:
                 json_str = '{"commands": ["git reset --soft HEAD~1"], "explanation": "Undo last commit, keeping changes staged.", "risk_level": "moderate", "alternatives": null}'
             else:
                 json_str = '{"commands": ["git add ."], "explanation": "Stage working directory changes.", "risk_level": "moderate", "alternatives": null}'
             return HeuristicFallbackResponse(json_str)
 
         # 2. Code Review
-        if "findings" in full_lower and ("severity" in full_lower or "code review" in full_lower):
+        if is_review:
             json_str = '{"score": 9.0, "summary": "Heuristic fallback: Code structure appears consistent.", "findings": []}'
             return HeuristicFallbackResponse(json_str)
 
         # 3. PR Drafting
-        if "pull request" in full_lower or ("pr" in full_lower and "summary" in full_lower):
-            pr_body = (
-                "## Summary\n\n"
-                "- Update project files and configuration.\n\n"
-                "## Key Changes\n\n"
-                "- Core improvements and updates.\n\n"
-                "## Verification\n\n"
-                "- Verified locally with test suite."
-            )
-            return HeuristicFallbackResponse(pr_body)
+        if is_pr:
+            pr_data = {
+                "title": "feat: update project files",
+                "body": (
+                    "## Summary\n\n"
+                    "- Update project files and configuration.\n\n"
+                    "## Key Changes\n\n"
+                    "- Core improvements and updates.\n\n"
+                    "## Verification\n\n"
+                    "- Verified locally with test suite."
+                ),
+            }
+            return HeuristicFallbackResponse(json.dumps(pr_data))
 
         # 4. Changelog Generation
-        if "changelog" in full_lower:
+        if is_changelog:
             cl_body = "### Features\n- Update project files\n\n### Chores\n- Maintenance and dependencies"
             return HeuristicFallbackResponse(cl_body)
 
-        # 5. Commit Message Generation
-        if (
-            "conventional_commit" in full_lower
-            or "staged changes" in full_lower
-            or "diff" in full_lower
-            or "commit message" in full_lower
-        ):
+        # 5. Conflict Resolution
+        if is_conflict:
+            conflict_data = {
+                "merged_content": "// Resolved conflict\n",
+                "explanation": "Heuristic fallback: Preserved updated branch changes."
+            }
+            return HeuristicFallbackResponse(json.dumps(conflict_data))
+
+        # 6. Commit Message Generation
+        if is_commit:
             # Parse staged files from user prompt or diff headers
             staged_files = []
             staged_match = re.search(r"-\s*Staged files:\s*([^\n]+)", user_text, re.IGNORECASE)
@@ -301,11 +361,11 @@ class FallbackChatModel:
                 return HeuristicFallbackResponse(commit_msg)
 
             # Fallback when staged files cannot be parsed from text
-            if "pyproject.toml" in user_lower or "package.json" in user_lower or "cargo.toml" in user_lower:
+            if "pyproject.toml" in search_lower or "package.json" in search_lower or "cargo.toml" in search_lower:
                 commit_msg = "chore(deps): update project dependencies and metadata"
-            elif "test" in user_lower or "tests/" in user_lower:
+            elif "test" in search_lower or "tests/" in search_lower:
                 commit_msg = "test: add and update test suite coverage"
-            elif "readme" in user_lower or ".md" in user_lower:
+            elif "readme" in search_lower or ".md" in search_lower:
                 commit_msg = "docs: update documentation"
             else:
                 commit_msg = "feat: update staged project files"

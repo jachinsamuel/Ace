@@ -16,35 +16,67 @@ class NoStagedChangesError(Exception):
     pass
 
 def clean_commit_text(message: str) -> str:
-    # Clean response (remove extra leading/trailing whitespace or markdown fences)
-    match = re.search(r"```(?:gitcommit|text|markdown|json)?\s*(.*?)\s*```", message, re.DOTALL)
+    # 1. Clean markdown code fences (```gitcommit, ```markdown, ```text, ```)
+    match = re.search(r"```(?:gitcommit|text|markdown|json|yaml)?\s*(.*?)\s*```", message, re.DOTALL)
     if match:
         message = match.group(1).strip()
     else:
         message = message.replace("```", "").strip()
 
-    # Remove leading conversational/markdown prefix lines (e.g., "markdown", "commit", "commit:", "here is...")
+    # 2. Split lines and strip leading conversational wrappers or markdown headers
     lines = message.splitlines()
-    junk_words = {
-        "commit", "commit:", "commit message:", "suggested commit:", "proposed commit message:",
-        "markdown", "text", "gitcommit", "json", "yaml", "code", "subject:", "title:", "message:"
-    }
+    junk_patterns = [
+        r"^(#+\s*)?(commit|commit\s*message|suggested\s*commit|proposed\s*commit(\s*message)?|gitcommit|markdown|text|json|yaml|code)\s*:?$",
+        r"^(#+\s*)?(summary|overview|key\s*changes|changes|description|notes|details|verification)\s*:?$",
+        r"^(subject|title|message)\s*:\s*$",
+        r"^(here\s+is|sure|below\s+is|this\s+commit).*",
+    ]
+
     while lines:
-        first_line = lines[0].strip().lower()
-        if (
-            first_line in junk_words
-            or first_line.startswith("here is")
-            or first_line.startswith("sure")
-            or first_line.startswith("below is")
-        ):
+        raw_first = lines[0].strip()
+        # Strip outer bold/italic markup: **Summary** -> Summary
+        raw_first = re.sub(r"^\*+|\*+$", "", raw_first).strip()
+        first_lower = raw_first.lower()
+        if not raw_first:
+            lines.pop(0)
+            continue
+
+        if any(re.match(p, first_lower) for p in junk_patterns):
             lines.pop(0)
         else:
             break
 
-    # Deduplicate repeating runaway lines or loops (common in smaller local models)
+    if not lines:
+        return ""
+
+    # 3. Clean line prefixes: strip leading markdown header markers (#, ##, ###) and bold wrappers
+    cleaned_lines = []
+    for line in lines:
+        trimmed = line.strip()
+        if not trimmed:
+            if cleaned_lines and cleaned_lines[-1] != "":
+                cleaned_lines.append("")
+            continue
+
+        # Strip markdown header prefixes: e.g. "## Key Changes" -> "Key Changes"
+        trimmed = re.sub(r"^#+\s*", "", trimmed).strip()
+
+        # If it's the very first line and starts with a bullet point, strip bullet:
+        # e.g. "- Update project files" -> "Update project files"
+        if not cleaned_lines and re.match(r"^[\*\-\•\+]\s+", trimmed):
+            trimmed = re.sub(r"^[\*\-\•\+]\s+", "", trimmed).strip()
+
+        # Strip full bold wrappers: e.g. "**feat(core): fix bug**" -> "feat(core): fix bug"
+        match_bold = re.match(r"^\*\*(.+?)\*\*$", trimmed)
+        if match_bold:
+            trimmed = match_bold.group(1).strip()
+
+        cleaned_lines.append(trimmed)
+
+    # 4. Deduplicate repeating runaway lines or loops (common in smaller local models)
     deduped_lines = []
     seen_lines_count = {}
-    for line in lines:
+    for line in cleaned_lines:
         trimmed = line.strip()
         if not trimmed:
             if deduped_lines and deduped_lines[-1] != "":
@@ -61,7 +93,7 @@ def clean_commit_text(message: str) -> str:
 
         deduped_lines.append(line)
 
-    # Cap body length to prevent runaway generation (max 15 lines total)
+    # 5. Cap body length to prevent runaway generation (max 15 lines total)
     if len(deduped_lines) > 15:
         deduped_lines = deduped_lines[:15]
 
@@ -106,7 +138,7 @@ class CommitGenerator:
 
         user_prompt = USER_PROMPT_TEMPLATE.format(
             repo_context=repo_context,
-            staged_diff=trim_diff(staged_diff, max_chars=25000)  # Cap diff to avoid context window limit
+            staged_diff=trim_diff(staged_diff, max_chars=15000)  # Cap diff to avoid context window limit and timeout
         )
 
         from ace.core.config import get_config
@@ -130,32 +162,94 @@ class CommitGenerator:
         # Clean response and filter runaway repetition loops
         message = clean_commit_text(message)
 
+        staged_files = status.get("staged", [])
+        total_files = len(staged_files)
+        main_file = staged_files[0].replace("\\", "/").split("/")[-1] if staged_files else "project files"
+
+        if not message:
+            return f"feat: update {main_file} and related files"
+
         # Ensure Conventional Commit format on subject line (especially for local Ollama models)
-        if format_type == "conventional" and message:
+        if format_type == "conventional":
             msg_lines = message.splitlines()
             first_line = msg_lines[0].strip()
-            
-            # Conventional commit regex pattern: <type>(<scope>): <subject> or <type>: <subject>
-            conv_pattern = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\([a-zA-Z0-9_\-/\.]+\))?!?: .+"
-            if not re.match(conv_pattern, first_line):
-                lower_first = first_line.lower()
-                staged_files = status.get("staged", [])
-                
-                if any(f.endswith((".md", ".rst", ".txt")) for f in staged_files):
-                    inferred_type = "docs"
-                elif any("test" in f.lower() for f in staged_files):
-                    inferred_type = "test"
-                elif any(f.startswith((".github", "Dockerfile", "pyproject.toml")) for f in staged_files):
-                    inferred_type = "build"
-                elif any(k in lower_first for k in ("fix", "bug", "error", "repair", "resolve", "correct")):
-                    inferred_type = "fix"
-                elif any(k in lower_first for k in ("refactor", "clean", "simplify", "restructure", "optimize")):
-                    inferred_type = "refactor"
+
+            def infer_commit_type(text: str) -> str:
+                t_lower = text.lower()
+                if any(k in t_lower for k in ("fix", "bug", "error", "repair", "resolve", "correct", "patch")):
+                    return "fix"
+                if any(k in t_lower for k in ("refactor", "clean", "simplify", "restructure", "optimize")):
+                    return "refactor"
+                if any(k in t_lower for k in ("perf", "performance", "speed")):
+                    return "perf"
+                if any(k in t_lower for k in ("doc", "readme", "guide")):
+                    return "docs"
+                if any(k in t_lower for k in ("test", "spec", "coverage")):
+                    return "test"
+                if any(k in t_lower for k in ("build", "dep", "dependency", "ci", "docker")):
+                    return "build"
+
+                doc_count = sum(1 for f in staged_files if f.lower().endswith((".md", ".rst", ".txt")) or "docs/" in f.lower())
+                test_count = sum(1 for f in staged_files if "test" in f.lower() or f.lower().startswith("tests/"))
+                build_count = sum(1 for f in staged_files if f.lower().startswith((".github", "dockerfile")) or f.lower().endswith((".toml", ".json", ".lock", ".yaml", ".yml")))
+
+                if total_files > 0 and doc_count == total_files:
+                    return "docs"
+                if total_files > 0 and (test_count == total_files or (test_count > 0 and test_count + doc_count == total_files)):
+                    return "test"
+                if total_files > 0 and build_count == total_files:
+                    return "build"
+                return "feat"
+
+            conv_match = re.match(
+                r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)(?:\([a-zA-Z0-9_\-/\.]+\))?!?:?)\s*(.*)$",
+                first_line,
+                re.IGNORECASE,
+            )
+
+            generic_words = {"summary", "key changes", "changes", "overview", "verification", "details", "update", "updates"}
+
+            if conv_match:
+                prefix = conv_match.group(1).lower().rstrip(":") + ":"
+                subj = conv_match.group(2).strip()
+                subj = re.sub(r"^[#\*\-\•\+\s:]+", "", subj).strip()
+
+                if subj.lower() in generic_words or len(subj) < 3:
+                    candidate = None
+                    for line in msg_lines[1:]:
+                        cleaned_candidate = re.sub(r"^[#\*\-\•\+\s:]+", "", line).strip()
+                        if cleaned_candidate and cleaned_candidate.lower() not in generic_words and len(cleaned_candidate) >= 3:
+                            candidate = cleaned_candidate
+                            break
+                    if candidate:
+                        subj = candidate[0].lower() + candidate[1:]
+                    else:
+                        subj = f"update {main_file} and related files"
                 else:
-                    inferred_type = "feat"
-                
-                # Un-capitalize first letter of subject
-                subj = first_line[0].lower() + first_line[1:] if first_line else first_line
+                    subj = subj[0].lower() + subj[1:]
+
+                subj = subj.rstrip(".")
+                msg_lines[0] = f"{prefix} {subj}"
+                message = "\n".join(msg_lines).strip()
+            else:
+                inferred_type = infer_commit_type(first_line)
+                subj = re.sub(r"^[#\*\-\•\+\s:]+", "", first_line).strip()
+
+                if subj.lower() in generic_words or len(subj) < 3:
+                    candidate = None
+                    for line in msg_lines[1:]:
+                        cleaned_candidate = re.sub(r"^[#\*\-\•\+\s:]+", "", line).strip()
+                        if cleaned_candidate and cleaned_candidate.lower() not in generic_words and len(cleaned_candidate) >= 3:
+                            candidate = cleaned_candidate
+                            break
+                    if candidate:
+                        subj = candidate[0].lower() + candidate[1:]
+                    else:
+                        subj = f"update {main_file} and related files"
+                else:
+                    subj = subj[0].lower() + subj[1:]
+
+                subj = subj.rstrip(".")
                 msg_lines[0] = f"{inferred_type}: {subj}"
                 message = "\n".join(msg_lines).strip()
 

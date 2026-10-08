@@ -36,6 +36,8 @@ Rules:
    - NEVER repeat lines, phrases, or bullet points. Each bullet point must be unique.
    - Do NOT list every single function; summarize key architectural changes concisely.
 6. Do NOT include markdown code blocks (e.g. ```) or conversational intro headers. Return ONLY the raw commit message.
+7. NEVER use markdown heading symbols (#, ##, ###, e.g. "## Summary", "## Key Changes") anywhere in the commit message.
+8. NEVER output a Pull Request template, Code Review template, or conversational commentary.
 
 Examples of required output structure:
 
@@ -61,7 +63,7 @@ Rules:
 2. Use the imperative, present tense: "Add OAuth2", not "Added OAuth2" or "Adds OAuth2".
 3. Capitalize the first letter.
 4. Do not end with a period.
-5. Do NOT include markdown code blocks (e.g. ```) in your output. Return only the raw commit message.
+5. Do NOT include markdown code blocks (e.g. ```) or markdown headers (#, ##, ###) in your output. Return only the raw commit message.
 """.strip()
 
 DETAILED_COMMIT_SYSTEM_PROMPT = """
@@ -79,7 +81,7 @@ Rules:
    - Why the change is necessary (context)
    - What the change accomplishes
    - A list of major changes made (bullet points)
-4. Do NOT include markdown code blocks (e.g. ```) in your output. Return only the raw commit message.
+4. Do NOT include markdown code blocks (e.g. ```) or markdown headers (#, ##, ###) in your output. Return only the raw commit message.
 """.strip()
 
 USER_PROMPT_TEMPLATE = """

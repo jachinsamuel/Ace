@@ -1,3 +1,4 @@
+from typing import List, Tuple
 import re
 from langchain_core.messages import SystemMessage, HumanMessage
 from ace.core.git_ops import GitOps
@@ -14,6 +15,87 @@ from ace.ai.prompts.commit import (
 class NoStagedChangesError(Exception):
     """Raised when trying to generate a commit message but no changes are staged."""
     pass
+
+def enforce_subject_length(subject_line: str, body_lines: List[str]) -> Tuple[str, List[str]]:
+    """
+    Ensures that the subject line is strictly <= 72 characters.
+    If the subject line is too long, splits it at natural clause boundaries (semicolons, periods,
+    conjunctions) or word boundaries, moving excess explanations into body bullets.
+    """
+    subject_line = subject_line.strip()
+    if len(subject_line) <= 72:
+        return subject_line, body_lines
+
+    conv_match = re.match(
+        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)(?:\([a-zA-Z0-9_\-/\.]+\))?!?:?)\s*(.*)$",
+        subject_line,
+        re.IGNORECASE,
+    )
+    if conv_match:
+        prefix = conv_match.group(1).lower().rstrip(":") + ":"
+        subj = conv_match.group(2).strip()
+    else:
+        prefix = ""
+        subj = subject_line
+
+    prefix_len = (len(prefix) + 1) if prefix else 0
+    max_subj_len = 72 - prefix_len
+    if max_subj_len < 15:
+        max_subj_len = 45  # Safety threshold if scope prefix is unusually wide
+
+    shortened_subj = None
+    overflow_text = None
+
+    # 1. Try splitting at clause punctuation: "; " or ". "
+    match_punct = re.search(r"[;\.]\s+", subj)
+    if match_punct:
+        candidate = subj[:match_punct.start()].strip()
+        if len(candidate) <= max_subj_len and len(candidate) >= 10:
+            shortened_subj = candidate
+            overflow_text = subj[match_punct.end():].strip()
+
+    # 2. Try splitting before conjunctions / prepositions
+    if not shortened_subj:
+        conjunctions = [
+            ", and ", " and ",
+            ", with ", " with ",
+            ", including ", " including ",
+            ", for ", " for ",
+            ", to "
+        ]
+        best_candidate = None
+        best_overflow = None
+        for conj in conjunctions:
+            idx = subj.find(conj)
+            if idx != -1:
+                candidate = subj[:idx].strip()
+                if len(candidate) <= max_subj_len and len(candidate) >= 15:
+                    if best_candidate is None or len(candidate) > len(best_candidate):
+                        best_candidate = candidate
+                        best_overflow = subj[idx + len(conj):].strip()
+        if best_candidate:
+            shortened_subj = best_candidate
+            overflow_text = best_overflow
+
+    # 3. Truncate at nearest word boundary before max_subj_len
+    if not shortened_subj:
+        cut_idx = subj[:max_subj_len].rfind(" ")
+        if cut_idx >= 15:
+            shortened_subj = subj[:cut_idx].rstrip(" ,;:-")
+            overflow_text = subj[cut_idx:].strip(" ,;:-")
+        else:
+            shortened_subj = subj[:max_subj_len].rstrip(" ,;:-")
+            overflow_text = subj[max_subj_len:].strip(" ,;:-")
+
+    new_body = list(body_lines)
+    if overflow_text:
+        clean_overflow = re.sub(r"^[-•*–—]\s*", "", overflow_text).strip()
+        if clean_overflow:
+            capitalized_overflow = clean_overflow[0].upper() + clean_overflow[1:] if len(clean_overflow) > 1 else clean_overflow.upper()
+            new_body.insert(0, f"- {capitalized_overflow}")
+
+    final_subject = f"{prefix} {shortened_subj}".strip() if prefix else shortened_subj
+    return final_subject, new_body
 
 def clean_commit_text(message: str) -> str:
     # 1. Clean markdown code fences (```gitcommit, ```markdown, ```text, ```)
@@ -48,6 +130,41 @@ def clean_commit_text(message: str) -> str:
 
     if not lines:
         return ""
+
+    # 2b. Expand inline bullet delimiters on lines:
+    # If a line contains inline bullets like "subject - Bullet 1 - Bullet 2", split them so that
+    # the subject stays on line 0, followed by an empty line and proper bullet lines in the body.
+    expanded_lines = []
+    for line in lines:
+        trimmed = line.strip()
+        if not trimmed:
+            if expanded_lines and expanded_lines[-1] != "":
+                expanded_lines.append("")
+            continue
+
+        # Look for inline bullet separators like " - ", " • ", " * ", " — ", " – "
+        if re.search(r"\s+[-•*–—]\s+", trimmed):
+            parts = [p.strip() for p in re.split(r"\s+[-•*–—]\s+", trimmed) if p.strip()]
+            if len(parts) > 1:
+                if not expanded_lines:
+                    # Subject line: part 0 is subject, parts 1+ become body bullets
+                    expanded_lines.append(parts[0])
+                    expanded_lines.append("")  # Blank line before body
+                    for p in parts[1:]:
+                        clean_p = re.sub(r"^[-•*–—]\s*", "", p).strip()
+                        if clean_p:
+                            expanded_lines.append(f"- {clean_p}")
+                else:
+                    # Within body lines: expand each part as a separate bullet
+                    for p in parts:
+                        clean_p = re.sub(r"^[-•*–—]\s*", "", p).strip()
+                        if clean_p:
+                            expanded_lines.append(f"- {clean_p}")
+                continue
+
+        expanded_lines.append(line)
+
+    lines = expanded_lines
 
     # 3. Clean line prefixes: strip leading markdown header markers (#, ##, ###) and bold wrappers
     cleaned_lines = []
@@ -97,7 +214,16 @@ def clean_commit_text(message: str) -> str:
     if len(deduped_lines) > 15:
         deduped_lines = deduped_lines[:15]
 
-    return "\n".join(deduped_lines).strip()
+    # 6. Strictly enforce 72-character limit on the subject line
+    if deduped_lines:
+        first_line = deduped_lines[0]
+        body_lines = [l for l in deduped_lines[1:] if l.strip()]
+        final_subj, final_body = enforce_subject_length(first_line, body_lines)
+        if final_body:
+            return (final_subj + "\n\n" + "\n".join(final_body)).strip()
+        return final_subj.strip()
+
+    return ""
 
 class CommitGenerator:
     def __init__(self, git_ops: GitOps):
@@ -230,7 +356,6 @@ class CommitGenerator:
 
                 subj = subj.rstrip(".")
                 msg_lines[0] = f"{prefix} {subj}"
-                message = "\n".join(msg_lines).strip()
             else:
                 inferred_type = infer_commit_type(first_line)
                 subj = re.sub(r"^[#\*\-\•\+\s:]+", "", first_line).strip()
@@ -251,6 +376,16 @@ class CommitGenerator:
 
                 subj = subj.rstrip(".")
                 msg_lines[0] = f"{inferred_type}: {subj}"
-                message = "\n".join(msg_lines).strip()
+
+        # Strictly enforce 72-character limit on the subject line across all formats
+        msg_lines = message.splitlines() if format_type != "conventional" else msg_lines
+        subj_line = msg_lines[0] if msg_lines else ""
+        raw_body_lines = [l for l in msg_lines[1:] if l.strip()] if len(msg_lines) > 1 else []
+        final_subject, final_body = enforce_subject_length(subj_line, raw_body_lines)
+
+        if final_body:
+            message = final_subject + "\n\n" + "\n".join(final_body).strip()
+        else:
+            message = final_subject
 
         return message

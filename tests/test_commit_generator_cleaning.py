@@ -148,3 +148,71 @@ def test_commit_generator_type_inference_not_greedy():
         # Should be feat, NOT test or docs
         assert msg.startswith("feat: add authentication service")
 
+def test_clean_commit_unpacks_inline_bullets_into_body():
+    """Verify that inline bullets joined by ' - ' on a single line are unpacked into subject + body bullets."""
+    raw = (
+        "refactor(ui): remove unused forensic stylometry and evidence matrix components - "
+        "Remove unused JavaScript code for forensic stylometry and evidence matrix - "
+        "Remove unused HTML elements for forensic stylometry and evidence matrix - "
+        "Update CSS styles to reflect the removal of unused components - "
+        "Remove unused data properties for forensic stylometry and evidence matrix"
+    )
+    cleaned = clean_commit_text(raw)
+    lines = cleaned.splitlines()
+
+    # Subject line must be <= 72 characters
+    subject = lines[0]
+    assert len(subject) <= 72
+    assert subject == "refactor(ui): remove unused forensic stylometry"
+
+    # Must have blank line separator before body
+    assert lines[1] == ""
+
+    # Subsequent lines must be individual bullet points including overflow clause
+    body = "\n".join(lines[2:])
+    assert "evidence matrix components" in body.lower()
+    assert "- Remove unused JavaScript code" in body
+    assert "- Remove unused HTML elements" in body
+    assert "- Update CSS styles" in body
+    assert "- Remove unused data properties" in body
+
+def test_commit_generator_enforces_strict_72_char_subject():
+    """Verify that long subject lines are automatically truncated at clause/word boundaries and overflow is moved to body."""
+    from unittest.mock import MagicMock, patch
+    from ace.ai.commit_generator import CommitGenerator
+
+    mock_git_ops = MagicMock()
+    mock_git_ops.get_status.return_value = {
+        "staged": ["auth/service.py"],
+        "unstaged": [],
+        "untracked": []
+    }
+    mock_git_ops.get_staged_diff.return_value = "+ def auth(): pass"
+    mock_git_ops.working_dir = "."
+    mock_git_ops.get_log.return_value = []
+    mock_git_ops.get_current_branch.return_value = "main"
+    mock_git_ops.get_upstream_tracking.return_value = None
+    mock_git_ops.get_ahead_behind.return_value = {"ahead": 0, "behind": 0}
+
+    mock_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = (
+        "feat(auth): implement advanced multi-factor authentication system with biometric hardware token support and fallback SMS verification"
+    )
+    mock_llm.invoke.return_value = mock_response
+
+    with patch("ace.ai.commit_generator.get_llm", return_value=mock_llm):
+        generator = CommitGenerator(mock_git_ops)
+        msg = generator.generate_message(format_type="conventional")
+        lines = msg.splitlines()
+        subject = lines[0]
+
+        # Subject line must strictly be <= 72 chars
+        assert len(subject) <= 72
+        assert subject.startswith("feat(auth):")
+        # Overflow text must be preserved in the body
+        assert len(lines) > 1
+        body = "\n".join(lines[1:])
+        assert "biometric" in body.lower()
+
+

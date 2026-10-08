@@ -27,11 +27,15 @@ Rules:
 2. Scope is optional but highly recommended. It should represent the module or component affected (e.g., auth, api, db, ui, core). Use lowercase.
 3. Subject line MUST start with `<type>(<scope>): ` or `<type>: `. NEVER start with plain sentences like "Update README..." or "Added feature...".
 4. Subject line must:
-   - Be under 72 characters
-   - Use imperative, present tense: "change", not "changed" nor "changes"
-   - Don't capitalize the first letter of the subject after the colon
-   - Do not end with a period
-5. The body is optional. When generated, it MUST consist of concise bullet points (maximum 3 to 6 bullet points total):
+   - Be strictly under 72 characters (ideally 50 to 70 characters).
+   - NEVER place multiple bullet points or explanations inline on the subject line using ' - ' or ';'.
+   - The subject line MUST be a single, concise summary line. All supporting explanations and bullet points MUST go into the body, separated by an empty line.
+   - Use imperative, present tense: "change", not "changed" nor "changes".
+   - Don't capitalize the first letter of the subject after the colon.
+   - Do not end with a period.
+5. The body is optional. When generated, it MUST be separated from the subject line by an empty line and consist of concise bullet points (maximum 3 to 6 bullet points total):
+   - Each bullet point must begin with "- ".
+   - NEVER combine multiple bullet points onto a single line.
    - NEVER write long paragraphs or narrative explanations like "This commit adds...".
    - NEVER repeat lines, phrases, or bullet points. Each bullet point must be unique.
    - Do NOT list every single function; summarize key architectural changes concisely.

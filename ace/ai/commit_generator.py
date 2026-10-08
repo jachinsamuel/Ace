@@ -217,7 +217,7 @@ def clean_commit_text(message: str) -> str:
     # 6. Strictly enforce 72-character limit on the subject line
     if deduped_lines:
         first_line = deduped_lines[0]
-        body_lines = [l for l in deduped_lines[1:] if l.strip()]
+        body_lines = [item for item in deduped_lines[1:] if item.strip()]
         final_subj, final_body = enforce_subject_length(first_line, body_lines)
         if final_body:
             return (final_subj + "\n\n" + "\n".join(final_body)).strip()
@@ -380,7 +380,7 @@ class CommitGenerator:
         # Strictly enforce 72-character limit on the subject line across all formats
         msg_lines = message.splitlines() if format_type != "conventional" else msg_lines
         subj_line = msg_lines[0] if msg_lines else ""
-        raw_body_lines = [l for l in msg_lines[1:] if l.strip()] if len(msg_lines) > 1 else []
+        raw_body_lines = [item for item in msg_lines[1:] if item.strip()] if len(msg_lines) > 1 else []
         final_subject, final_body = enforce_subject_length(subj_line, raw_body_lines)
 
         if final_body:

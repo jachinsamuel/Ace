@@ -16,13 +16,38 @@ class NoStagedChangesError(Exception):
     """Raised when trying to generate a commit message but no changes are staged."""
     pass
 
+def sanitize_conventional_scope(subject_line: str) -> str:
+    """Strip file extensions from conventional commit scopes, e.g. feat(foo.py): -> feat(foo):"""
+    def _clean_scope(match):
+        c_type = match.group(1).rstrip("(")
+        raw_scope = match.group(2).strip()
+        clean_scope = re.sub(r"\.[a-zA-Z0-9]+$", "", raw_scope)
+        return f"{c_type}({clean_scope}): "
+
+    sanitized = re.sub(
+        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore))\(([^)]+)\)\s*:?\s*",
+        _clean_scope,
+        subject_line,
+        flags=re.IGNORECASE,
+    )
+    m = re.match(
+        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)\(([^)]+)\):\s*(?:update|fix|refactor|add|implement)\s+)(\S+)\s+(.*)$",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+    if m:
+        prefix, scope, target_word, rest = m.groups()
+        if scope.lower() == target_word.lower() or scope.lower().replace("-", "_") == target_word.lower().replace("-", "_"):
+            sanitized = f"{prefix}{rest}"
+    return sanitized
+
 def enforce_subject_length(subject_line: str, body_lines: List[str]) -> Tuple[str, List[str]]:
     """
     Ensures that the subject line is strictly <= 72 characters.
     If the subject line is too long, splits it at natural clause boundaries (semicolons, periods,
     conjunctions) or word boundaries, moving excess explanations into body bullets.
     """
-    subject_line = subject_line.strip()
+    subject_line = sanitize_conventional_scope(subject_line.strip())
     if len(subject_line) <= 72:
         return subject_line, body_lines
 

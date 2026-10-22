@@ -194,4 +194,68 @@ def test_fallback_chat_model_pr_json_output():
     assert "body" in data
     assert "## Summary" in data["body"]
 
+def test_fallback_chat_model_root_code_file_scope_no_extension():
+    """Verify that root-level code files (e.g. web_verifier.py) do not have .py in scope or duplicate words."""
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from ace.ai.prompts.commit import CONVENTIONAL_COMMIT_SYSTEM_PROMPT
 
+    primary = MagicMock()
+    primary.invoke.side_effect = Exception("Read timed out")
+    fallback = MagicMock()
+    fallback.invoke.side_effect = Exception("Ollama connection refused")
+
+    model = FallbackChatModel(primary_llm=primary, fallback_llm=fallback)
+
+    user_prompt = (
+        "Repository Context:\n"
+        "- Staged files: web_verifier.py\n\n"
+        "Staged Diff:\n"
+        "diff --git a/web_verifier.py b/web_verifier.py\n"
+        "--- a/web_verifier.py\n"
+        "+++ b/web_verifier.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+def verify_news(text): return True\n\n"
+        "Generate the commit message."
+    )
+    messages = [
+        SystemMessage(content=CONVENTIONAL_COMMIT_SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt)
+    ]
+
+    res = model.invoke(messages)
+    assert ".py" not in res.content
+    assert res.content == "feat(web_verifier): update implementation"
+
+
+def test_fallback_chat_model_root_code_file_fix_action():
+    """Verify that root-level code files with fix keywords produce clean fix scope and message."""
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from ace.ai.prompts.commit import CONVENTIONAL_COMMIT_SYSTEM_PROMPT
+
+    primary = MagicMock()
+    primary.invoke.side_effect = Exception("Read timed out")
+    fallback = MagicMock()
+    fallback.invoke.side_effect = Exception("Ollama connection refused")
+
+    model = FallbackChatModel(primary_llm=primary, fallback_llm=fallback)
+
+    user_prompt = (
+        "Repository Context:\n"
+        "- Staged files: web_verifier.py\n\n"
+        "Staged Diff:\n"
+        "diff --git a/web_verifier.py b/web_verifier.py\n"
+        "--- a/web_verifier.py\n"
+        "+++ b/web_verifier.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "-def verify(): error\n"
+        "+def verify(): return fix_bug()\n\n"
+        "Generate the commit message for bug fix."
+    )
+    messages = [
+        SystemMessage(content=CONVENTIONAL_COMMIT_SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt)
+    ]
+
+    res = model.invoke(messages)
+    assert ".py" not in res.content
+    assert res.content == "fix(web_verifier): resolve issues in implementation"

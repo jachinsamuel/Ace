@@ -216,3 +216,14 @@ def test_commit_generator_enforces_strict_72_char_subject():
         assert "biometric" in body.lower()
 
 
+
+
+def test_clean_commit_sanitizes_scope_extensions_and_deduplicates():
+    raw1 = "feat(web_verifier.py): update web_verifier implementation"
+    assert clean_commit_text(raw1) == "feat(web_verifier): update implementation"
+
+    raw2 = "fix(app.js): resolve connection issues"
+    assert clean_commit_text(raw2) == "fix(app): resolve connection issues"
+
+    raw3 = "refactor(data_loader.py): refactor data_loader pipeline"
+    assert clean_commit_text(raw3) == "refactor(data_loader): refactor pipeline"

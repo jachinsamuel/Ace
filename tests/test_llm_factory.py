@@ -68,6 +68,7 @@ def test_get_llm_nvidia():
             base_url="https://integrate.api.nvidia.com/v1",
             temperature=0.0,
             max_tokens=2048,
+            timeout=15,
         )
 
 def test_get_llm_openai():
@@ -87,6 +88,7 @@ def test_get_llm_openai():
             api_key="openai-key-test",
             temperature=0.0,
             max_tokens=2048,
+            timeout=15,
         )
 
 def test_get_llm_anthropic():
@@ -106,6 +108,7 @@ def test_get_llm_anthropic():
             api_key="anthropic-key-test",
             temperature=0.0,
             max_tokens=2048,
+            timeout=15,
         )
 
 def test_get_llm_custom():

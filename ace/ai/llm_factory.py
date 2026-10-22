@@ -342,7 +342,9 @@ class FallbackChatModel:
                 elif code_count > 0:
                     first_code = next(f for f in staged_files if is_code(f) and not is_test(f))
                     parts = [p for p in first_code.replace("\\", "/").split("/") if p and p not in ("src", "lib")]
-                    scope = parts[-2] if len(parts) >= 2 else (parts[0] if parts else "")
+                    raw_scope = parts[-2] if len(parts) >= 2 else (parts[0] if parts else "")
+                    # Strictly strip any file extension from scope
+                    scope = raw_scope.rsplit(".", 1)[0].strip() if raw_scope else ""
 
                     action = "feat"
                     if any(kw in user_lower for kw in ("fix", "bug", "patch", "error", "crash")):
@@ -350,11 +352,14 @@ class FallbackChatModel:
                     elif any(kw in user_lower for kw in ("refactor", "cleanup", "simplify", "reorganize")):
                         action = "refactor"
 
-                    base_name = parts[-1].split(".")[0] if parts else "module"
+                    base_name = parts[-1].rsplit(".", 1)[0] if parts else "module"
+                    verb = "resolve issues in" if action == "fix" else ("refactor" if action == "refactor" else "update")
                     if scope and scope != base_name:
-                        commit_msg = f"{action}({scope}): update {base_name} implementation"
+                        commit_msg = f"{action}({scope}): {verb} {base_name} implementation"
+                    elif scope:
+                        commit_msg = f"{action}({scope}): {verb} implementation"
                     else:
-                        commit_msg = f"{action}: update {base_name} implementation"
+                        commit_msg = f"{action}: {verb} {base_name} implementation"
                 else:
                     commit_msg = "chore: update project files"
 
@@ -392,6 +397,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
 
     # Build primary LLM
     primary_llm = None
+    timeout = getattr(config.ai, "timeout", 15) or 15
     if provider == "nvidia":
         api_key = config.ai.nvidia_api_key or os.getenv("NVIDIA_API_KEY")
         if not api_key:
@@ -404,6 +410,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 base_url="https://integrate.api.nvidia.com/v1",
                 temperature=0.0,
                 max_tokens=2048,
+                timeout=timeout,
             )
         
     elif provider == "openai":
@@ -417,6 +424,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 api_key=api_key,
                 temperature=0.0,
                 max_tokens=2048,
+                timeout=timeout,
             )
 
     elif provider == "anthropic":
@@ -430,6 +438,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 api_key=api_key,
                 temperature=0.0,
                 max_tokens=2048,
+                timeout=timeout,
             )
 
     elif provider in ("google", "gemini"):

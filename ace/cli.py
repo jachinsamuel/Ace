@@ -1,5 +1,11 @@
 import sys
 import os
+import warnings
+
+# Suppress internal third-party library warnings unless ACE_DEBUG is enabled
+if not os.getenv("ACE_DEBUG"):
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
 from typing import Optional, List
 import typer
 import click

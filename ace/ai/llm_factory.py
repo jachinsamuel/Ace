@@ -1,5 +1,10 @@
 from typing import Optional
 import os
+import warnings
+
+if not os.getenv("ACE_DEBUG"):
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
 import json
 import urllib.request
 import urllib.error
@@ -120,7 +125,21 @@ class FallbackChatModel:
 
     def invoke(self, input_data, config=None, **kwargs):
         try:
-            return self.primary_llm.invoke(input_data, config=config, **kwargs)
+            res = self.primary_llm.invoke(input_data, config=config, **kwargs)
+            content = getattr(res, "content", res)
+            if content is None or not str(content).strip():
+                add_kwargs = getattr(res, "additional_kwargs", {}) or {}
+                reasoning = add_kwargs.get("reasoning_content")
+                if reasoning and str(reasoning).strip():
+                    from ace.ai.commit_generator import clean_commit_text
+                    cleaned = clean_commit_text(str(reasoning).strip())
+                    if cleaned:
+                        if hasattr(res, "content"):
+                            res.content = cleaned
+                            return res
+                        return HeuristicFallbackResponse(cleaned)
+                raise ValueError("Primary LLM returned empty response content.")
+            return res
         except Exception as primary_err:
             if self.fallback_llm and self.fallback_llm != self.primary_llm:
                 from ace.ui.display import print_warning

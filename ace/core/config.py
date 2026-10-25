@@ -11,7 +11,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "ai": {
         "provider": "nvidia",
         "nvidia_api_key": "",
-        "nvidia_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "nvidia_model": "nvidia/nemotron-3.5-bolt-e4b",
         "ollama_model": "qwen2.5-coder:7b",
         "ollama_url": "http://localhost:11434",
         "openai_api_key": "",

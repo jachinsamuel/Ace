@@ -130,6 +130,7 @@ def test_get_llm_custom():
             base_url="https://custom-url.com/v1",
             temperature=0.0,
             max_tokens=2048,
+            timeout=15,
         )
 
 def test_get_llm_missing_keys():

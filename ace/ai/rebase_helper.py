@@ -56,7 +56,7 @@ class RebaseHelper:
             response = llm.invoke(messages)
             return extract_json(response.content)
         except Exception as e:
-            return {"recommendations": [], "summary": f"Failed to analyze commits: {e}"}
+            return {"recommendations": [], "explanation": f"Failed to analyze commits: {e}"}
 
     def run_auto_rebase(self, base_branch: str, recommendations: List[Dict[str, Any]]) -> str:
         """Execute programmatic interactive rebase using Python sequence and message editors."""
@@ -89,7 +89,7 @@ class RebaseHelper:
 
             # Sequence editor: edits git-rebase-todo
             seq_code = f"""import sys, json
-with open({repr(map_path)}, 'r') as f:
+with open({repr(map_path)}, 'r', encoding='utf-8') as f:
     data = json.load(f)
 actions = data['actions']
 
@@ -120,7 +120,7 @@ with open(todo_path, 'w', encoding='utf-8') as f:
 
             # Commit msg editor: edits COMMIT_EDITMSG for reword actions
             reword_code = f"""import sys, json
-with open({repr(map_path)}, 'r') as f:
+with open({repr(map_path)}, 'r', encoding='utf-8') as f:
     data = json.load(f)
 rewords = data['rewords']
 
@@ -133,7 +133,7 @@ if lines:
     subject = lines[0].strip()
     if subject in rewords:
         new_msg = rewords[subject]
-        comments = [l for l in lines[1:] if l.strip().startswith('#')]
+        comments = [line_item for line_item in lines[1:] if line_item.strip().startswith('#')]
         with open(msg_path, 'w', encoding='utf-8') as f_out:
             f_out.write(new_msg + '\\n\\n' + '\\n'.join(comments))
 """

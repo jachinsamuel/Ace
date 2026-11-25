@@ -53,6 +53,9 @@ def prompt_action(options: Dict[str, Tuple[str, str]], default_key: str = "\r") 
 
     while True:
         char = click.getchar()
+        if char == "" or char in ("\x03", "\x04"):
+            import typer
+            raise typer.Abort()
         # Normalise Windows CRLF
         if char in ("\r", "\n"):
             char = "\r"

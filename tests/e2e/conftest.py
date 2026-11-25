@@ -32,11 +32,16 @@ class MockLLMHandler(BaseHTTPRequestHandler):
             
             messages = payload.get("messages", [])
             full_text = " ".join([m.get("content", "") for m in messages])
+            model_name = payload.get("model", "")
             
             response_content = "Default mock response"
             
+            if model_name == "mock-missing-keys":
+                response_content = json.dumps({"title": "feat(mock): missing body only"})
+            elif model_name == "mock-invalid-json":
+                response_content = "This is not valid JSON from the LLM."
             # 1. Intent Parser / NL Planner
-            if "expert AI Git Copilot" in full_text or "Translate this request into Git commands" in full_text or "IntentParser" in full_text:
+            elif "expert AI Git Copilot" in full_text or "Translate this request into Git commands" in full_text or "IntentParser" in full_text:
                 # Find the user's query
                 user_msg = ""
                 for m in reversed(messages):

@@ -227,3 +227,11 @@ def test_clean_commit_sanitizes_scope_extensions_and_deduplicates():
 
     raw3 = "refactor(data_loader.py): refactor data_loader pipeline"
     assert clean_commit_text(raw3) == "refactor(data_loader): refactor pipeline"
+
+
+def test_clean_commit_preserves_breaking_change_and_version_scopes():
+    assert clean_commit_text("feat(auth)!: drop legacy session tokens") == "feat(auth)!: drop legacy session tokens"
+    assert clean_commit_text("feat(web_verifier.py)!: update web_verifier API") == "feat(web_verifier)!: update API"
+    assert clean_commit_text("chore(v1.2): bump release metadata") == "chore(v1.2): bump release metadata"
+    assert clean_commit_text("feat(mock): add mock feature") == "feat(mock): add mock feature"
+    assert clean_commit_text("feat(api): update api.py handlers") == "feat(api): update handlers"

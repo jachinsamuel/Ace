@@ -128,16 +128,6 @@ class FallbackChatModel:
             res = self.primary_llm.invoke(input_data, config=config, **kwargs)
             content = getattr(res, "content", res)
             if content is None or not str(content).strip():
-                add_kwargs = getattr(res, "additional_kwargs", {}) or {}
-                reasoning = add_kwargs.get("reasoning_content")
-                if reasoning and str(reasoning).strip():
-                    from ace.ai.commit_generator import clean_commit_text
-                    cleaned = clean_commit_text(str(reasoning).strip())
-                    if cleaned:
-                        if hasattr(res, "content"):
-                            res.content = cleaned
-                            return res
-                        return HeuristicFallbackResponse(cleaned)
                 raise ValueError("Primary LLM returned empty response content.")
             return res
         except Exception as primary_err:
@@ -145,7 +135,11 @@ class FallbackChatModel:
                 from ace.ui.display import print_warning
                 print_warning(f"Online AI provider failed ({primary_err}). Automatically falling back to local Ollama...")
                 try:
-                    return self.fallback_llm.invoke(input_data, config=config, **kwargs)
+                    fb_res = self.fallback_llm.invoke(input_data, config=config, **kwargs)
+                    fb_content = getattr(fb_res, "content", fb_res)
+                    if fb_content is None or not str(fb_content).strip():
+                        raise ValueError("Fallback Ollama LLM returned empty response content.")
+                    return fb_res
                 except Exception:
                     print_warning("Local Ollama service unavailable. Using Smart Heuristic Fallback...")
                     return self._generate_heuristic_response(input_data)
@@ -188,6 +182,14 @@ class FallbackChatModel:
         is_changelog = False
         is_conflict = False
         is_commit = False
+        is_undo = False
+        is_ignore = False
+        is_rebase = False
+        is_search = False
+        is_doctor = False
+        is_explain = False
+        is_standup = False
+        is_blame = False
 
         if sys_lower.strip():
             if (
@@ -207,9 +209,29 @@ class FallbackChatModel:
                 is_conflict = True
             elif "translate a user's natural language request" in sys_lower:
                 is_intent = True
+            elif 'to "undo"' in sys_lower or "recent git reflog entries" in sys_lower:
+                is_undo = True
+            elif "generate .gitignore rules" in sys_lower:
+                is_ignore = True
+            elif "recommend how to group, squash, or reword" in sys_lower:
+                is_rebase = True
+            elif "semantic search over the provided git commit history" in sys_lower:
+                is_search = True
+            elif "repository doctor" in sys_lower:
+                is_doctor = True
+            elif "git educator" in sys_lower:
+                is_explain = True
+            elif "daily standup update" in sys_lower:
+                is_standup = True
+            elif "why a specific line of code was introduced" in sys_lower:
+                is_blame = True
 
         # Priority 2: Raw string inputs (e.g. direct text calls in tests or lightweight callers)
-        if not (is_intent or is_review or is_pr or is_changelog or is_conflict or is_commit):
+        if not (
+            is_intent or is_review or is_pr or is_changelog or is_conflict or is_commit
+            or is_undo or is_ignore or is_rebase or is_search or is_doctor
+            or is_explain or is_standup or is_blame
+        ):
             if "translate this request into git commands" in search_lower or "risk_level" in search_lower:
                 is_intent = True
             elif "findings" in search_lower and ("severity" in search_lower or "code review" in search_lower):
@@ -279,6 +301,63 @@ class FallbackChatModel:
             }
             return HeuristicFallbackResponse(json.dumps(conflict_data))
 
+        # 5b. Smart Undo
+        if is_undo:
+            undo_data = {
+                "commands": [],
+                "explanation": "Offline heuristic fallback: Cannot safely inspect reflog history without an active LLM. Run manual git reset/restore commands if needed.",
+                "risk_level": "safe",
+                "alternatives": None,
+            }
+            return HeuristicFallbackResponse(json.dumps(undo_data))
+
+        # 5c. Gitignore Generation
+        if is_ignore:
+            ignore_data = {
+                "rules": "# Added via offline fallback\n*.log\n*.tmp\n",
+                "explanation": "Offline heuristic fallback: Generated generic temporary/log file ignore patterns.",
+            }
+            return HeuristicFallbackResponse(json.dumps(ignore_data))
+
+        # 5d. Rebase / Squash Helper
+        if is_rebase:
+            rebase_data = {
+                "recommendations": [],
+                "explanation": "Offline heuristic fallback: Interactive commit squashing requires an active LLM.",
+            }
+            return HeuristicFallbackResponse(json.dumps(rebase_data))
+
+        # 5e. Semantic Search
+        if is_search:
+            return HeuristicFallbackResponse(json.dumps({"matches": []}))
+
+        # 5f. Repository Doctor
+        if is_doctor:
+            doc_md = (
+                "### Diagnostics Assessment\n"
+                "Repository diagnostics report generated locally (AI advisor offline).\n\n"
+                "### Recovery Plan\n"
+                "- Remove stale `.git/index.lock` files only if no Git process is running.\n"
+                "- Use `git status` and `git stash` to secure uncommitted work before recovery commands.\n\n"
+                "### Prevention Tip\n"
+                "- Check your network connection or start local Ollama for full AI diagnostics."
+            )
+            return HeuristicFallbackResponse(doc_md)
+
+        # 5g. Explain / Standup / Blame markdown fallbacks
+        if is_explain:
+            return HeuristicFallbackResponse(
+                "Offline heuristic fallback: AI explanation is unavailable without an active online provider or local Ollama."
+            )
+        if is_standup:
+            return HeuristicFallbackResponse(
+                "**Yesterday / Recent Work:**\n- Offline fallback: review `git log` for recent commits.\n\n**Today / Planned Work:**\n- Continue development.\n\n**Blockers:**\n- None"
+            )
+        if is_blame:
+            return HeuristicFallbackResponse(
+                "### Why this line was written\nOffline heuristic fallback: inspect the commit diff above for change context."
+            )
+
         # 6. Commit Message Generation
         if is_commit:
             # Parse staged files from user prompt or diff headers
@@ -313,9 +392,10 @@ class FallbackChatModel:
                     return any(p.endswith(ext) for ext in docs_exts) or "docs/" in p or "license" in p
 
                 def is_test(f: str) -> bool:
-                    p = f.lower()
-                    return "test" in p or p.startswith("tests/") or p.endswith(
-                        ("_test.py", ".test.ts", ".spec.ts", ".test.js", ".spec.js")
+                    p = f.lower().replace("\\", "/")
+                    return (
+                        bool(re.search(r"(?:^|/|_)tests?(?:/|_|\.)", p))
+                        or p.endswith(("_test.py", ".test.ts", ".spec.ts", ".test.js", ".spec.js"))
                     )
 
                 def is_config(f: str) -> bool:
@@ -416,7 +496,13 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
 
     # Build primary LLM
     primary_llm = None
-    timeout = getattr(config.ai, "timeout", 15) or 15
+    raw_timeout = getattr(config.ai, "timeout", 15)
+    try:
+        timeout = int(raw_timeout) if isinstance(raw_timeout, int) or str(raw_timeout).isdigit() else float(raw_timeout)
+        if timeout <= 0:
+            timeout = 15
+    except (TypeError, ValueError):
+        timeout = 15
     if provider == "nvidia":
         api_key = config.ai.nvidia_api_key or os.getenv("NVIDIA_API_KEY")
         if not api_key:
@@ -491,6 +577,7 @@ def get_llm(offline_override: bool = False) -> BaseChatModel:
                 base_url=base_url,
                 temperature=0.0,
                 max_tokens=2048,
+                timeout=timeout,
             )
     else:
         primary_llm = DummyMissingKeyLLM(provider, f"Unsupported AI provider: '{provider}'.")

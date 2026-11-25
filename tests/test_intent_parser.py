@@ -73,3 +73,12 @@ def test_intent_parser_invalid_json(temp_git_repo):
         from ace.ai.intent_parser import IntentParserError
         with pytest.raises(IntentParserError):
             parser.parse_intent("undo last commit")
+
+
+def test_extract_json_nested_with_surrounding_prose():
+    from ace.utils.json_utils import extract_json
+
+    raw = 'Here is the review:\n{\n  "score": 8.5,\n  "findings": [{"line": 12, "severity": "info"}]\n}\nHope this helps!'
+    parsed = extract_json(raw)
+    assert parsed["score"] == 8.5
+    assert parsed["findings"][0]["line"] == 12

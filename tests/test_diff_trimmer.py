@@ -29,3 +29,16 @@ def test_trim_diff_single_huge_file():
     res = trim_diff(diff, max_chars=500)
     assert "file diff truncated due to size" in res
     assert len(res) <= 550
+
+
+def test_split_diff_quoted_spaces():
+    from ace.utils.diff_parser import split_diff_by_file
+
+    diff = (
+        'diff --git "a/my folder/my file.py" "b/my folder/my file.py"\n'
+        '--- "a/my folder/my file.py"\n'
+        '+++ "b/my folder/my file.py"\n'
+        '@@ -1 +1 @@\n-old\n+new\n'
+    )
+    parsed = split_diff_by_file(diff)
+    assert "my folder/my file.py" in parsed

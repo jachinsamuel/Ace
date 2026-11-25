@@ -15,3 +15,7 @@ def test_strip_emojis():
     multi_line = "🎨 First line\n🚀 Second line"
     expected = "First line\nSecond line"
     assert strip_emojis(multi_line) == expected
+
+    # Preserve leading indentation on indented code/markdown lines
+    indented = "Summary:\n    def helper():\n        return 42"
+    assert strip_emojis(indented) == indented

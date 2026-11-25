@@ -242,7 +242,7 @@ def test_pr_drafter_missing_llm_response_keys(git_workspace):
     git_workspace.repo.index.add([str(test_file)])
     git_workspace.repo.index.commit("feat: update test.txt")
     
-    # Run with corrupted env / invalid custom base to cause error
+    # Return JSON missing required 'body' key from mock LLM endpoint
     cmd = [
         sys.executable,
         "-c",
@@ -251,11 +251,12 @@ def test_pr_drafter_missing_llm_response_keys(git_workspace):
     ]
     env = os.environ.copy()
     env["ACE_PROVIDER"] = "custom"
-    env["CUSTOM_API_BASE"] = "http://127.0.0.1:9999/v1" # Invalid URL!
+    env["CUSTOM_API_BASE"] = f"http://127.0.0.1:{git_workspace.port}/v1"
     env["CUSTOM_API_KEY"] = "mock-key"
-    env["CUSTOM_MODEL"] = "mock-model"
+    env["CUSTOM_MODEL"] = "mock-missing-keys"
     env["HOME"] = str(git_workspace.home)
     env["USERPROFILE"] = str(git_workspace.home)
+    env["GIT_CEILING_DIRECTORIES"] = str(git_workspace.workspace.parent)
     
     import subprocess
     res = subprocess.run(
@@ -271,7 +272,7 @@ def test_pr_drafter_missing_llm_response_keys(git_workspace):
     assert "PR description" in res.stdout or "Error" in res.stderr or "Error" in res.stdout
 
 def test_pr_drafter_invalid_json_llm_response(git_workspace):
-    # Triggers same LLM failure / parser error behavior
+    # Return non-JSON text from mock LLM endpoint to trigger JSON extraction failure
     test_file = git_workspace.workspace / "test.txt"
     test_file.write_text("initial")
     git_workspace.repo.index.add([str(test_file)])
@@ -293,11 +294,12 @@ def test_pr_drafter_invalid_json_llm_response(git_workspace):
     ]
     env = os.environ.copy()
     env["ACE_PROVIDER"] = "custom"
-    env["CUSTOM_API_BASE"] = "http://127.0.0.1:9999/v1"  # Invalid
+    env["CUSTOM_API_BASE"] = f"http://127.0.0.1:{git_workspace.port}/v1"
     env["CUSTOM_API_KEY"] = "mock-key"
-    env["CUSTOM_MODEL"] = "mock-model"
+    env["CUSTOM_MODEL"] = "mock-invalid-json"
     env["HOME"] = str(git_workspace.home)
     env["USERPROFILE"] = str(git_workspace.home)
+    env["GIT_CEILING_DIRECTORIES"] = str(git_workspace.workspace.parent)
     
     import subprocess
     res = subprocess.run(

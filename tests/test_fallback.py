@@ -259,3 +259,46 @@ def test_fallback_chat_model_root_code_file_fix_action():
     res = model.invoke(messages)
     assert ".py" not in res.content
     assert res.content == "fix(web_verifier): resolve issues in implementation"
+
+
+def test_fallback_chat_model_latest_file_not_misclassified_as_test():
+    """Verify filenames containing 'test' as a substring (e.g. latest.py) are treated as code, not tests."""
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from ace.ai.prompts.commit import CONVENTIONAL_COMMIT_SYSTEM_PROMPT
+
+    primary = MagicMock()
+    primary.invoke.side_effect = Exception("Read timed out")
+    fallback = MagicMock()
+    fallback.invoke.side_effect = Exception("Ollama connection refused")
+
+    model = FallbackChatModel(primary_llm=primary, fallback_llm=fallback)
+    messages = [
+        SystemMessage(content=CONVENTIONAL_COMMIT_SYSTEM_PROMPT),
+        HumanMessage(content="Repository Context:\n- Staged files: latest.py\n\nGenerate the commit message."),
+    ]
+
+    res = model.invoke(messages)
+    assert not res.content.startswith("test:")
+    assert res.content == "feat(latest): update implementation"
+
+
+def test_fallback_chat_model_undo_and_ignore_return_valid_json():
+    """Verify undo and ignore prompts receive valid JSON from heuristic fallback."""
+    import json
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from ace.ai.prompts.undo import UNDO_SYSTEM_PROMPT
+    from ace.ai.prompts.ignore import IGNORE_SYSTEM_PROMPT
+
+    primary = MagicMock()
+    primary.invoke.side_effect = Exception("Offline")
+    fallback = MagicMock()
+    fallback.invoke.side_effect = Exception("Ollama down")
+    model = FallbackChatModel(primary_llm=primary, fallback_llm=fallback)
+
+    undo_res = model.invoke([SystemMessage(content=UNDO_SYSTEM_PROMPT), HumanMessage(content="Undo last")])
+    undo_data = json.loads(undo_res.content)
+    assert "commands" in undo_data and "explanation" in undo_data
+
+    ignore_res = model.invoke([SystemMessage(content=IGNORE_SYSTEM_PROMPT), HumanMessage(content="Ignore logs")])
+    ignore_data = json.loads(ignore_res.content)
+    assert "rules" in ignore_data and "explanation" in ignore_data

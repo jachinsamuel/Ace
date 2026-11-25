@@ -21,19 +21,15 @@ def extract_json(text: str) -> Any:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Try to find a JSON object {...} or JSON array [...] substring
-        obj_match = re.search(r"(\{.*?\})", cleaned, re.DOTALL)
-        if obj_match:
-            try:
-                return json.loads(obj_match.group(1))
-            except json.JSONDecodeError:
-                pass
-        
-        arr_match = re.search(r"(\[.*?\])", cleaned, re.DOTALL)
-        if arr_match:
-            try:
-                return json.loads(arr_match.group(1))
-            except json.JSONDecodeError:
-                pass
+        # Use JSONDecoder.raw_decode starting from each '{' or '[' so nested JSON
+        # objects/arrays with surrounding prose parse accurately.
+        decoder = json.JSONDecoder()
+        for idx, ch in enumerate(cleaned):
+            if ch in ("{", "["):
+                try:
+                    obj, _ = decoder.raw_decode(cleaned[idx:])
+                    return obj
+                except json.JSONDecodeError:
+                    continue
 
         raise JSONExtractError(f"Could not parse response as JSON. Raw text:\n{text}")

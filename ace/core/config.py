@@ -71,7 +71,11 @@ class Config:
         self.commit = ConfigSection(merged_commit)
         self.review = ConfigSection(merged_review)
         self.safety = ConfigSection(merged_safety)
-        self.aliases: Dict[str, str] = data.get("aliases", DEFAULT_CONFIG.get("aliases", {})) if isinstance(data.get("aliases"), dict) else DEFAULT_CONFIG.get("aliases", {})
+        self.aliases: Dict[str, str] = (
+            copy.deepcopy(data["aliases"])
+            if isinstance(data.get("aliases"), dict)
+            else copy.deepcopy(DEFAULT_CONFIG.get("aliases", {}))
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

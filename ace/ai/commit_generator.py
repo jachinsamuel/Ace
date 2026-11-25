@@ -18,26 +18,38 @@ class NoStagedChangesError(Exception):
 
 def sanitize_conventional_scope(subject_line: str) -> str:
     """Strip file extensions from conventional commit scopes, e.g. feat(foo.py): -> feat(foo):"""
+    had_scope_ext = False
+
     def _clean_scope(match):
-        c_type = match.group(1).rstrip("(")
+        nonlocal had_scope_ext
+        c_type = match.group(1)
         raw_scope = match.group(2).strip()
-        clean_scope = re.sub(r"\.[a-zA-Z0-9]+$", "", raw_scope)
-        return f"{c_type}({clean_scope}): "
+        bang = match.group(3) or ""
+        clean_scope = re.sub(r"\.[a-zA-Z][a-zA-Z0-9]*$", "", raw_scope)
+        if clean_scope != raw_scope:
+            had_scope_ext = True
+        return f"{c_type}({clean_scope}){bang}: "
 
     sanitized = re.sub(
-        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore))\(([^)]+)\)\s*:?\s*",
+        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore))\(([^)]+)\)(!?)\s*:?\s*",
         _clean_scope,
         subject_line,
         flags=re.IGNORECASE,
     )
     m = re.match(
-        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)\(([^)]+)\):\s*(?:update|fix|refactor|add|implement)\s+)(\S+)\s+(.*)$",
+        r"^((?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)\(([^)]+)\)!?:\s*(?:update|fix|refactor|add|implement)\s+)(\S+)\s+(.*)$",
         sanitized,
         flags=re.IGNORECASE,
     )
     if m:
         prefix, scope, target_word, rest = m.groups()
-        if scope.lower() == target_word.lower() or scope.lower().replace("-", "_") == target_word.lower().replace("-", "_"):
+        target_stem = re.sub(r"\.[a-zA-Z][a-zA-Z0-9]*$", "", target_word)
+        target_has_ext = target_stem != target_word
+        scope_norm = scope.lower().replace("-", "_")
+        if (had_scope_ext or target_has_ext) and (
+            scope_norm == target_word.lower().replace("-", "_")
+            or scope_norm == target_stem.lower().replace("-", "_")
+        ):
             sanitized = f"{prefix}{rest}"
     return sanitized
 

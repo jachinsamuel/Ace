@@ -107,7 +107,7 @@ def handle_push_failure(git_ops: GitOps, error_msg: str, remote: str = "origin",
                 push_res = git_ops.push(remote=remote, branch=curr_branch)
             print_success("Pushed to remote successfully!")
             if push_res.strip():
-                console.print(f"[dim]{push_res}[/dim]")
+                console.print(Text(push_res, style="dim"))
             return True
         except Exception as e:
             show_error_panel(f"Failed during pull & rebase or retry push: {e}", "Resolution Error")
@@ -124,7 +124,7 @@ def handle_push_failure(git_ops: GitOps, error_msg: str, remote: str = "origin",
                 push_res = git_ops.push(remote=remote, branch=curr_branch)
             print_success("Pushed to remote successfully!")
             if push_res.strip():
-                console.print(f"[dim]{push_res}[/dim]")
+                console.print(Text(push_res, style="dim"))
             return True
         except Exception as e:
             show_error_panel(f"Failed during pull or retry push: {e}", "Resolution Error")
@@ -138,7 +138,7 @@ def handle_push_failure(git_ops: GitOps, error_msg: str, remote: str = "origin",
                     push_res = git_ops.execute(f"push --force-with-lease {remote} {curr_branch}")
                 print_success("Force pushed with lease successfully!")
                 if push_res.strip():
-                    console.print(f"[dim]{push_res}[/dim]")
+                    console.print(Text(push_res, style="dim"))
                 return True
             except Exception as e:
                 show_error_panel(f"Force push failed: {e}", "Resolution Error")
@@ -153,7 +153,7 @@ def handle_push_failure(git_ops: GitOps, error_msg: str, remote: str = "origin",
                 push_res = git_ops.push(remote=remote, branch=curr_branch, set_upstream=True)
             print_success("Set upstream and pushed successfully!")
             if push_res.strip():
-                console.print(f"[dim]{push_res}[/dim]")
+                console.print(Text(push_res, style="dim"))
             return True
         except Exception as e:
             show_error_panel(f"Push with set-upstream failed: {e}", "Resolution Error")

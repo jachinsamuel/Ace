@@ -8,7 +8,7 @@ def test_workload_feature_lifecycle(git_workspace):
     git_workspace.repo.index.commit("feat: initial commit")
 
     # 1. Config Setup
-    res = git_workspace.run(["setup"], stdin_data="5\nhttp://custom:1234/v1\nkey\nmodel\nconventional\nn\nn\n")
+    res = git_workspace.run(["setup"], stdin_data="5\nhttp://custom:1234/v1\nkey\nmodel\n1\nconventional\nn\nn\n")
     assert res.returncode == 0
     
     # 2. Branch creation

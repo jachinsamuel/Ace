@@ -29,6 +29,7 @@ from ace.ui.display import (
 )
 
 from typer.core import TyperGroup
+from rich.text import Text
 
 class NaturalLanguageGroup(TyperGroup):
     def parse_args(self, ctx, args):
@@ -228,9 +229,26 @@ def main(
                 except Exception as e:
                     show_error_panel(f"Failed to run smart commit: {e}", "Ace Error")
                     raise typer.Exit(code=1)
-            elif subcmd.startswith("review"):
+            elif subcmd == "review" or subcmd.startswith("review "):
                 try:
-                    review_cmd(all_changes=True, offline=offline)
+                    import shlex
+                    rev_tokens = shlex.split(subcmd)[1:]
+                    rev_file = None
+                    rev_all = "--all" in rev_tokens or "-a" in rev_tokens
+                    rev_branch = None
+                    i = 0
+                    while i < len(rev_tokens):
+                        tok = rev_tokens[i]
+                        if tok in ("-b", "--branch") and i + 1 < len(rev_tokens):
+                            rev_branch = rev_tokens[i + 1]
+                            i += 2
+                            continue
+                        if not tok.startswith("-") and rev_file is None:
+                            rev_file = tok
+                        i += 1
+                    if rev_file is None and rev_branch is None:
+                        rev_all = True
+                    review_cmd(file=rev_file, all_changes=rev_all, branch=rev_branch, offline=offline)
                     outputs.append("Code review completed.")
                 except (typer.Exit, typer.Abort):
                     outputs.append("Code review completed.")
@@ -248,7 +266,8 @@ def main(
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
-                        encoding="utf-8"
+                        encoding="utf-8",
+                        errors="replace"
                     )
                     if res_proc.returncode != 0:
                         raise Exception(res_proc.stderr or res_proc.stdout)
@@ -396,7 +415,7 @@ def commit_cmd(
             try:
                 result = git_ops.commit(msg, sign=config.commit.sign)
                 print_success("Committed changes successfully!")
-                console.print(f"[dim]{result}[/dim]")
+                console.print(Text(result, style="dim"))
                 break
             except Exception as e:
                 show_error_panel(f"Failed to commit: {e}", "Git Commit Error")
@@ -477,7 +496,7 @@ def commit_cmd(
                 with spinner(f"Pushing '{current_branch}' to {selected_remote} and setting upstream..."):
                     push_res = git_ops.push(remote=selected_remote, branch=current_branch, set_upstream=True)
                 print_success("Pushed and set upstream branch successfully!")
-                console.print(f"[dim]{push_res}[/dim]")
+                console.print(Text(push_res, style="dim"))
             except Exception as e:
                 from ace.ai.push_resolver import handle_push_failure
                 handle_push_failure(git_ops, str(e), remote=selected_remote, branch=current_branch, offline=offline)
@@ -490,7 +509,7 @@ def commit_cmd(
                 with spinner(f"Pushing to {upstream}..."):
                     push_res = git_ops.push(remote=remote_name)
                 print_success("Pushed to remote successfully!")
-                console.print(f"[dim]{push_res}[/dim]")
+                console.print(Text(push_res, style="dim"))
             except Exception as e:
                 from ace.ai.push_resolver import handle_push_failure
                 handle_push_failure(git_ops, str(e), remote=remote_name, branch=current_branch, offline=offline)
@@ -711,8 +730,8 @@ def review_cmd(
     
     if file:
         # Review specific file (staged + unstaged)
-        staged_f = git_ops.repo.git.diff("--staged", file)
-        unstaged_f = git_ops.repo.git.diff(file)
+        staged_f = git_ops.repo.git.diff("--staged", "--", file)
+        unstaged_f = git_ops.repo.git.diff("--", file)
         diff_text = staged_f + "\n" + unstaged_f
         desc = f"changes in file '{file}'"
     elif branch:
@@ -728,8 +747,8 @@ def review_cmd(
         try:
             diff_text = git_ops.repo.git.diff("HEAD")
         except Exception:
-            # Fallback if no commits exist
-            diff_text = git_ops.repo.git.diff()
+            # Fallback if no commits exist (include both staged and unstaged changes)
+            diff_text = (git_ops.get_staged_diff() + "\n" + git_ops.repo.git.diff()).strip()
         desc = "all uncommitted changes (staged + unstaged)"
     else:
         # Default: review staged changes only
@@ -815,11 +834,11 @@ def resolve_cmd(
             
             # Print HEAD
             console.print("[bold cyan]<<<<<<< HEAD (Your Changes)[/bold cyan]")
-            console.print(sugg["head"])
+            console.print(sugg["head"], markup=False)
             console.print("[bold cyan]=======[/bold cyan]")
             
             # Print Incoming
-            console.print(sugg["incoming"])
+            console.print(sugg["incoming"], markup=False)
             console.print("[bold cyan]>>>>>>> (Incoming Changes)[/bold cyan]\n")
             
             # Print AI suggestion
@@ -868,7 +887,9 @@ def resolve_cmd(
                 
                 # Prompt to stage
                 if confirm(f"Stage resolved file '{file_path}' (git add)?", default=True):
-                    git_ops.execute(f"add {file_path}")
+                    safe_file_path = file_path.replace("\\", "/")
+                    quoted_file_path = f'"{safe_file_path}"' if " " in safe_file_path else safe_file_path
+                    git_ops.execute(f"add {quoted_file_path}")
                     print_success(f"Staged {file_path}.")
             except Exception as e:
                 show_error_panel(f"Failed to apply resolutions to {file_path}: {e}", "Error")
@@ -983,7 +1004,7 @@ def stats_cmd():
         
         la = lines_info.get(author, {"added": 0, "deleted": 0})
         lines_str = f"[green]+{la['added']}[/green]/[red]-{la['deleted']}[/red]"
-        contrib_table.add_row(author, f"{count} ({pct:.1f}%)", lines_str, bar)
+        contrib_table.add_row(Text(author, style="bold white"), f"{count} ({pct:.1f}%)", lines_str, bar)
 
     console.print(contrib_table)
     console.print()
@@ -1396,7 +1417,7 @@ def pr_cmd(
     else:
         from rich.markdown import Markdown
         console.print()
-        console.print(Panel(f"[bold cyan]Proposed PR Title:[/bold cyan]\n{title}", border_style="cyan"))
+        console.print(Panel(Text.assemble(("Proposed PR Title:\n", "bold cyan"), (title, "")), border_style="cyan"))
         console.print()
         console.print(Markdown(body))
         console.print()
@@ -1463,7 +1484,6 @@ def search_cmd(
             while True:
                 console.print("\n[bold]Select action:[/bold]")
                 def _key(k: str, desc: str) -> None:
-                    from rich.text import Text
                     console.print(Text.assemble(
                         ("  ", ""), (f"[{k}]", "bold #00D5FF"), (f"  {desc}", "#BDBDBD")
                     ))
@@ -1509,7 +1529,6 @@ def search_cmd(
 def _execute_alias(alias_name: str, expanded_cmd: str):
     import shlex
     import subprocess
-    from rich.text import Text
     from ace.core.git_ops import GitOps
 
     console.print(Text.assemble(
@@ -1539,16 +1558,16 @@ def _execute_alias(alias_name: str, expanded_cmd: str):
                     res = git_ops.execute(sub[4:])
                 print_success(f"Executed: {sub}")
                 if res.strip():
-                    console.print(f"[dim]{res}[/dim]")
+                    console.print(Text(res, style="dim"))
             except Exception as e:
                 show_error_panel(f"Git command '{sub}' failed: {e}", "Alias Execution Error")
                 raise typer.Exit(code=1)
         else:
-            res = subprocess.run(sub, shell=True, capture_output=True, text=True)
+            res = subprocess.run(sub, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
             if res.returncode == 0:
                 print_success(f"Executed: {sub}")
                 if res.stdout.strip():
-                    console.print(f"[dim]{res.stdout.strip()}[/dim]")
+                    console.print(Text(res.stdout.strip(), style="dim"))
             else:
                 show_error_panel(f"Command '{sub}' failed: {res.stderr.strip()}", "Alias Execution Error")
                 raise typer.Exit(code=1)
@@ -1641,11 +1660,12 @@ def ignore_cmd(
 
     if not rules.strip():
         print_warning("No new rules needed.")
-        console.print(f"Explanation: {explanation}")
+        console.print(f"Explanation: {explanation}", markup=False)
         raise typer.Exit(code=0)
 
-    console.print(Panel(rules, title="[bold yellow]Proposed .gitignore Rules[/bold yellow]", border_style="yellow"))
-    console.print(f"\n[bold]Explanation:[/bold] {explanation}\n")
+    console.print(Panel(Text(rules), title="[bold yellow]Proposed .gitignore Rules[/bold yellow]", border_style="yellow"))
+    console.print(Text.assemble(("Explanation: ", "bold"), (explanation, "")))
+    console.print()
 
     if confirm("Append these rules to your .gitignore?", default=True):
         gitignore_path = os.path.join(git_ops.working_dir, ".gitignore")
@@ -1672,7 +1692,6 @@ def ignore_cmd(
 def help_cmd():
     from rich.table import Table
     from rich.panel import Panel
-    from rich.text import Text
     from ace.ui.banner import get_fire_banner_static
     
     # 1. Header with static gradient banner
@@ -1743,14 +1762,15 @@ def add_cmd(
         show_error_panel(str(e), "Git Error")
         raise typer.Exit(code=1)
 
-    quoted_files = [f'"{f}"' if " " in f and not (f.startswith('"') or f.startswith("'")) else f for f in files]
+    normalized_files = [f.replace("\\", "/") for f in files]
+    quoted_files = [f'"{f}"' if " " in f and not (f.startswith('"') or f.startswith("'")) else f for f in normalized_files]
     files_str = " ".join(quoted_files)
     try:
         with spinner(f"Staging changes for: {files_str}..."):
             res = git_ops.execute(f"add {files_str}")
         print_success(f"Successfully staged: {files_str}")
         if res.strip():
-            console.print(res)
+            console.print(res, markup=False)
     except Exception as e:
         show_error_panel(f"Failed to stage files: {e}", "Git Error")
         raise typer.Exit(code=1)
@@ -1866,7 +1886,7 @@ def squash_cmd(
                 res = helper.run_auto_rebase(base, recommendations)
             print_success("History squashed and cleaned successfully!")
             if res.strip():
-                console.print(f"[dim]{res}[/dim]")
+                console.print(Text(res, style="dim"))
         except Exception as e:
             show_error_panel(f"Failed to execute rebase/squash: {e}", "Git Rebase Error")
             raise typer.Exit(code=1)
@@ -2216,8 +2236,9 @@ def blame_cmd(
         raise typer.Exit(code=1)
 
     # 3. Run git blame for this line
+    safe_file = file.replace("\\", "/")
     try:
-        quoted_file = f'"{file}"' if " " in file and not (file.startswith('"') or file.startswith("'")) else file
+        quoted_file = f'"{safe_file}"' if " " in safe_file and not (safe_file.startswith('"') or safe_file.startswith("'")) else safe_file
         blame_output = git_ops.execute(f"blame -L {line},{line} -- {quoted_file}")
         parts = blame_output.strip().split()
         if not parts:
@@ -2248,7 +2269,7 @@ def blame_cmd(
                 "summary": commit.summary,
                 "message": commit.message,
             }
-            commit_show_output = git_ops.execute(f'show -p {commit_hash} -- "{file}"')
+            commit_show_output = git_ops.execute(f'show -p {commit_hash} -- "{safe_file}"')
         except Exception as e:
             show_error_panel(f"Failed to fetch commit details for '{commit_hash}': {e}", "Git Error")
             raise typer.Exit(code=1)

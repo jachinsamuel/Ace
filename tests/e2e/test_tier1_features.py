@@ -130,26 +130,26 @@ def test_config_display(git_workspace):
     assert "custom" in res.stdout
 
 def test_setup_wizard_nvidia(git_workspace):
-    # Setup nvidia: select 1, key, model, commit format, sign, emoji
-    stdin_data = "1\nnvidia-key\nnvidia/llama-model\nconventional\ny\ny\n"
+    # Setup nvidia: select 1, key, model, language, commit format, sign, emoji
+    stdin_data = "1\nnvidia-key\nnvidia/llama-model\n1\nconventional\ny\ny\n"
     res = git_workspace.run(["setup"], stdin_data=stdin_data)
     assert res.returncode == 0
     assert "Configuration saved successfully" in res.stdout
 
 def test_setup_wizard_ollama(git_workspace):
-    stdin_data = "2\nhttp://localhost:11434\nqwen-model\nsimple\nn\nn\n"
+    stdin_data = "2\nhttp://localhost:11434\nqwen-model\n1\nsimple\nn\nn\n"
     res = git_workspace.run(["setup"], stdin_data=stdin_data)
     assert res.returncode == 0
     assert "Configuration saved successfully" in res.stdout
 
 def test_setup_wizard_openai(git_workspace):
-    stdin_data = "3\nopenai-key\ngpt-4o-mini\ndetailed\ny\nn\n"
+    stdin_data = "3\nopenai-key\ngpt-4o-mini\n1\ndetailed\ny\nn\n"
     res = git_workspace.run(["setup"], stdin_data=stdin_data)
     assert res.returncode == 0
     assert "Configuration saved successfully" in res.stdout
 
 def test_setup_wizard_custom(git_workspace):
-    stdin_data = "5\nhttp://custom-url/v1\ncustom-key\ncustom-model\nconventional\nn\ny\n"
+    stdin_data = "5\nhttp://custom-url/v1\ncustom-key\ncustom-model\n1\nconventional\nn\ny\n"
     res = git_workspace.run(["setup"], stdin_data=stdin_data)
     assert res.returncode == 0
     assert "Configuration saved successfully" in res.stdout

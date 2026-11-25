@@ -11,12 +11,12 @@ def split_diff_by_file(diff_text: str) -> Dict[str, str]:
         return {}
 
     # Split by the git diff header pattern
-    chunks = re.split(r"^(diff --git a/)", diff_text, flags=re.MULTILINE)
+    chunks = re.split(r'^(diff --git (?:"?a/))', diff_text, flags=re.MULTILINE)
     
     file_diffs = {}
     
-    # The first element in chunks is everything before the first "diff --git a/" (usually empty)
-    # The subsequent elements come in pairs: the separator "diff --git a/" and the actual chunk body
+    # The first element in chunks is everything before the first "diff --git" (usually empty)
+    # The subsequent elements come in pairs: the separator and the actual chunk body
     i = 1
     while i < len(chunks):
         sep = chunks[i]
@@ -24,16 +24,16 @@ def split_diff_by_file(diff_text: str) -> Dict[str, str]:
         
         full_chunk = sep + body
         
-        # Parse the filename from the first line: diff --git a/filename b/filename
+        # Parse the filename from the first line: diff --git a/file b/file or "a/file with space" "b/file with space"
         first_line = full_chunk.splitlines()[0]
-        # Match 'b/path' from the end of the line
-        match = re.search(r" b/(.+)$", first_line)
+        quoted_match = re.search(r'\s+"b/([^"]+)"\s*$', first_line)
+        match = quoted_match or re.search(r"\s+b/(.+)$", first_line)
         if match:
             filename = match.group(1).strip()
             file_diffs[filename] = full_chunk
         else:
-            # Fallback regex if first line matches diff --git a/path b/path with quotes/spaces
-            match_alt = re.search(r"a/(.+?) b/", first_line)
+            # Fallback regex if first line matches diff --git a/path b/path
+            match_alt = re.search(r'"?a/(.+?)"?\s+"?b/', first_line)
             if match_alt:
                 filename = match_alt.group(1).strip()
                 file_diffs[filename] = full_chunk

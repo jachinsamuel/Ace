@@ -90,7 +90,10 @@ class GitOps:
             return self.repo.git.diff("--staged")
         except git.GitCommandError:
             # Fallback if no commits exist (support SHA-1 and SHA-256 empty tree hashes)
-            for empty_tree in ("4b825dc642cb6eb9a0ff12e40d46a843d8110151", "4b825dc642cb6eb9a0ff12e40d46a843d8110151000000000000000000000000"):
+            for empty_tree in (
+                "4b825dc642cb6eb9a0ff12e40d46a843d8110151",
+                "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b4b939dd74decc5321",
+            ):
                 try:
                     return self.repo.git.diff("--cached", empty_tree)
                 except git.GitCommandError:
@@ -109,13 +112,12 @@ class GitOps:
         if author:
             kwargs["author"] = author
         
-        args = []
         if path:
-            args.append(path)
+            kwargs["paths"] = path
             
         try:
             from ace.utils.string_utils import strip_emojis
-            commits = self.repo.iter_commits(*args, **kwargs)
+            commits = self.repo.iter_commits(**kwargs)
             return [
                 {
                     "hexsha": commit.hexsha,

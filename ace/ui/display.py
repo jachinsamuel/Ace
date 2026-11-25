@@ -39,7 +39,7 @@ def print_success(message: str) -> None:
 
 def print_warning(message: str) -> None:
     """Print a warning message."""
-    console.print(f" [warning]{_SYM_WARNING}[/warning]  [warning]{message}[/warning]")
+    console.print(Text.assemble((" ", ""), (_SYM_WARNING, "warning"), ("  ", ""), (str(message), "warning")))
 
 def clean_error_message(message: str) -> str:
     """Clean up common LLM API response dumps and traceback details into human-readable text."""
@@ -188,7 +188,7 @@ def show_plan(commands: List[str], explanations: List[str]) -> None:
         else:
             cmd_text = Text(cmd, style="bold white")
 
-        table.add_row(str(i), cmd_text, exp)
+        table.add_row(str(i), cmd_text, Text(exp, style="#BDBDBD"))
 
     console.print()
     console.print(table)
@@ -360,7 +360,7 @@ def show_review(findings: List[Dict[str, Any]], score: float) -> None:
                 (loc, "underline #00D5FF"),
             )
         )
-        console.print(f"    [#BDBDBD]{desc}[/#BDBDBD]")
+        console.print(Text(f"    {desc}", style="#BDBDBD"))
 
         if fix:
             console.print("    [dim #666666]Suggested fix:[/]")

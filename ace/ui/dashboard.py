@@ -250,29 +250,37 @@ def show_dashboard(git_ops: GitOps, offline: bool = False):
             from ace.cli import commit_cmd
             try:
                 commit_cmd(offline=offline)
+            except (typer.Exit, typer.Abort):
+                pass
             except Exception as e:  # noqa: BLE001
-                console.print(f"[error]  Error: {e}[/error]")
+                console.print(Text(f"  Error: {e}", style="error"))
 
         elif choice == "r":
             from ace.cli import review_cmd
             try:
                 review_cmd(all_changes=True, offline=offline)
+            except (typer.Exit, typer.Abort):
+                pass
             except Exception as e:  # noqa: BLE001
-                console.print(f"[error]  Error: {e}[/error]")
+                console.print(Text(f"  Error: {e}", style="error"))
 
         elif choice == "u":
             from ace.cli import undo_cmd
             try:
                 undo_cmd(offline=offline)
+            except (typer.Exit, typer.Abort):
+                pass
             except Exception as e:  # noqa: BLE001
-                console.print(f"[error]  Error: {e}[/error]")
+                console.print(Text(f"  Error: {e}", style="error"))
 
         elif choice == "s":
             from ace.cli import stats_cmd
             try:
                 stats_cmd()
+            except (typer.Exit, typer.Abort):
+                pass
             except Exception as e:  # noqa: BLE001
-                console.print(f"[error]  Error: {e}[/error]")
+                console.print(Text(f"  Error: {e}", style="error"))
 
         elif choice == "w":
             _handle_switch_repo(git_ops, parent_dir)
@@ -381,7 +389,7 @@ def _handle_plan_command(git_ops: GitOps, offline: bool) -> None:
                 git_args = cmd[4:] if cmd.startswith("git ") else cmd
                 result   = git_ops.execute(git_args)
                 if result.strip():
-                    console.print(f"[dim]{result}[/dim]")
+                    console.print(Text(result, style="dim"))
             print_success("Plan executed successfully.")
         else:
             console.print("[dim]  Plan aborted.[/dim]")
